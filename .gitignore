@@ -1,0 +1,8 @@
+supervise/
+log/main/
+log/supervise/
+run-prelude
+*.bak
+*~
+compiled/
+*.[0-9]*

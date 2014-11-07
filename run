@@ -1,0 +1,7 @@
+#!/bin/sh
+if [ -f ./run-prelude ]; then . ./run-prelude; fi
+cd src
+PLTSTDERR=info
+export PLTSTDERR
+echo '============================================='
+exec racket main.rkt 2>&1
