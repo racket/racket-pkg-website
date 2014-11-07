@@ -1,3 +1,45 @@
+@charset "UTF-8";
+@import url(http://fonts.googleapis.com/css?family=Open+Sans:500,400,300,600,700);
+@import url(http://fonts.googleapis.com/css?family=Inconsolata);
+
 body {
     padding-top: 50px;
+    font-family: "Open Sans";
+    font-weight: 400;
+    color: #1e1e1e;
+    -webkit-font-smoothing: antialiased;
+}
+
+.navbar { background: black; }
+
+.build_green { background-color: #ccffcc; }
+.build_yellow { background-color: #ffffcc; }
+.build_red { background-color: #ffcccc; }
+
+.doctags-label { font-weight: bold; }
+
+table.packages, table.package-details {
+    width: 100%;
+}
+
+table {
+    border: 1px solid #e5e5e5;
+}
+td, th {
+    border-top: 1px solid #e5e5e5;
+    vertical-align: top;
+    padding: 0.5em;
+}
+
+ul.list-inline { display: inline-block; }
+ul.list-inline li { padding-right: 0; }
+
+ul.authors { list-style: none; padding: 0; }
+ul.authors a { color: black; }
+
+table.packages h2 { font-size: 160%; margin-top: 0; }
+
+ul.build-results,
+ul.module-list {
+    list-style: none; padding: 0;
 }
