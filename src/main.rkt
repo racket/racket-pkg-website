@@ -5,6 +5,8 @@
 (require racket/format)
 (require racket/date)
 (require racket/port)
+(require racket/string)
+(require net/uri-codec)
 (require web-server/servlet)
 (require "bootstrap.rkt")
 (require "html-utils.rkt")
@@ -51,6 +53,7 @@
 (define-values (request-handler named-url)
   (dispatch-rules
    [("") main-page]
+   [("search") search-page]
    [("package" (string-arg)) package-page]
    ))
 
@@ -64,9 +67,6 @@
   (define package-name-str (~a package-name))
   `(a ((href ,(named-url package-page package-name-str))) ,package-name-str))
 
-(define (author-link author-name)
-  `(a ((href "TODO")) ,author-name))
-
 (define (doc-destruct doc)
   (match doc
     [(list _ n u) (values n u)]
@@ -78,8 +78,16 @@
       (buildhost-link docset-url docset-name)
       `(del ,docset-name)))
 
+(define (tags-page-url tags)
+  (format "~a?~a"
+          (named-url search-page)
+          (alist->form-urlencoded (list (cons 'tags (string-join tags))))))
+
+(define (author-link author-name)
+  `(a ((href ,(tags-page-url (list (format "author:~a" author-name))))) ,author-name))
+
 (define (tag-link tag-name)
-  `(a ((href "TODO")) ,tag-name))
+  `(a ((href ,(tags-page-url (list tag-name)))) ,tag-name))
 
 (define (buildhost-link #:attributes [attributes '()] url-suffix label)
   `(a (,@attributes
@@ -104,15 +112,52 @@
 (define (utc->string utc)
   (string-append (date->string (seconds->date utc #f) #t) " (UTC)"))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define-syntax @
-  (syntax-rules ()
-    [(_ v) v]
-    [(_ v k rest ...) (@ (@ref v 'k) rest ...)]))
-
-(define (@ref v k)
-  (and v (hash-ref v k (lambda () #f))))
+(define (package-summary-table package-names)
+  `(table
+    ((class "packages sortable"))
+    (tr
+     (th "Package")
+     (th "Description")
+     (th "Build"))
+    ,@(maybe-splice (null? package-names)
+                    `(tr (td ((colspan "3"))
+                             (div ((class "alert alert-info"))
+                                  "No packages found."))))
+    ,@(for/list ((package-name package-names))
+        (define pkg (package-detail package-name))
+        `(tr
+          (td (h2 ,(package-link package-name))
+              ,(authors-list (@ pkg authors))
+              ;; recently-updated?
+              )
+          (td (p ,(@ pkg description))
+              ,@(maybe-splice
+                 (pair? (@ pkg build docs))
+                 `(div
+                   (span ((class "doctags-label")) "Docs: ")
+                   ,(doc-links (@ pkg build docs))))
+              ,@(maybe-splice
+                 (pair? (@ pkg tags))
+                 `(div
+                   (span ((class "doctags-label")) "Tags: ")
+                   ,(tag-links (@ pkg tags)))))
+          ,(cond
+            [(@ pkg build failure-log)
+             `(td ((class "build_red"))
+               ,(buildhost-link (@ pkg build failure-log) "fails"))]
+            [(and (@ pkg build success-log)
+                  (@ pkg build dep-failure-log))
+             `(td ((class "build_yellow"))
+               ,(buildhost-link (@ pkg build success-log)
+                                "succeeds")
+               " with "
+               ,(buildhost-link (@ pkg build dep-failure-log)
+                                "dependency problems"))]
+            [(@ pkg build success-log)
+             `(td ((class "build_green"))
+               ,(buildhost-link (@ pkg build success-log) "succeeds"))]
+            [else
+             `(td)])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -121,51 +166,22 @@
                       #:title-element ""
                       `(div ((class "jumbotron"))
                         (h1 "Racket Package Index")
-                        (p "These are the currently-registered packages available via the "
+                        (p "These are the packages available via the "
                            (a ((href "docs.racket-lang.org/pkg/getting-started.html"))
-                              "Racket package system") "."))
-
-                      `(table
-                        ((class "packages sortable"))
-                        (tr
-                         (th "Package")
-                         (th "Description")
-                         (th "Build"))
-                        ,@(for/list ((package-name (sorted-package-names)))
-                            (define pkg (package-detail package-name))
-                            `(tr
-                              (td (h2 ,(package-link package-name))
-                                  ,(authors-list (@ pkg authors))
-                                  ;; recently-updated?
-                                  )
-                              (td (p ,(@ pkg description))
-                                  ,@(maybe-splice
-                                     (pair? (@ pkg build docs))
-                                     `(div
-                                       (span ((class "doctags-label")) "Docs: ")
-                                       ,(doc-links (@ pkg build docs))))
-                                  ,@(maybe-splice
-                                     (pair? (@ pkg tags))
-                                     `(div
-                                       (span ((class "doctags-label")) "Tags: ")
-                                       ,(tag-links (@ pkg tags)))))
-                              ,(cond
-                                [(@ pkg build failure-log)
-                                 `(td ((class "build_red"))
-                                   ,(buildhost-link (@ pkg build failure-log) "fails"))]
-                                [(and (@ pkg build success-log)
-                                      (@ pkg build dep-failure-log))
-                                 `(td ((class "build_yellow"))
-                                   ,(buildhost-link (@ pkg build success-log)
-                                                    "succeeds")
-                                   " with "
-                                   ,(buildhost-link (@ pkg build dep-failure-log)
-                                                    "dependency problems"))]
-                                [(@ pkg build success-log)
-                                 `(td ((class "build_green"))
-                                   ,(buildhost-link (@ pkg build success-log) "succeeds"))]
-                                [else
-                                 `(td)]))))))
+                              "Racket package system") ".")
+                        (p "Simply run " (kbd "raco pkg install " (var "package-name"))
+                           " to install a package.")
+                        (form ((role "form")
+                               (action ,(named-url search-page)))
+                              (div ((class "form-group"))
+                                   (input ((class "form-control")
+                                           (type "text")
+                                           (placeholder "Search packages")
+                                           (name "q")
+                                           (value "")
+                                           (id "q"))))
+                              ))
+                      (package-summary-table (package-search "" '((main-distribution #f))))))
 
 (define (package-page request package-name-str)
   (define package-name (string->symbol package-name-str))
@@ -230,7 +246,7 @@
                             (tr (th "Documentation")
                                 (td ,(doc-links (@ pkg build docs))))
                             (tr (th "Tags")
-                                (td ,@(for/list ((tag (@ pkg tags))) (tag-link tag))))
+                                (td ,(tag-links (@ pkg tags))))
                             (tr (th "Last updated")
                                 (td ,(utc->string (@ pkg last-updated))))
                             (tr (th "Ring")
@@ -288,3 +304,46 @@
                             (tr (th "Last edited")
                                 (td ,(utc->string (@ pkg last-edit))))
                             ))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (search-page request)
+  (define-form-bindings request ([search-text q ""]
+                                 [tags-input tags ""]))
+  (define tags (for/list ((t (string-split tags-input)))
+                 (match t
+                   [(pregexp #px"!(.*)" (list _ tag)) (list (string->symbol tag) #f)]
+                   [tag (list (string->symbol tag) #t)])))
+  (bootstrap-response "Search Racket Package Index"
+                      `(form ((class "form-horizontal")
+                              (role "form"))
+                        (div ((class "form-group"))
+                             (label ((class "col-sm-2 control-label")
+                                     (for "q")) "Search terms")
+                             (div ((class "col-sm-10"))
+                                  (input ((class "form-control")
+                                          (type "text")
+                                          (placeholder "Enter free-form text to match here")
+                                          (name "q")
+                                          (value ,search-text)
+                                          (id "q")))))
+                        (div ((class "form-group"))
+                             (label ((class "col-sm-2 control-label")
+                                     (for "tags")) "Tags")
+                             (div ((class "col-sm-10"))
+                                  (input ((class "form-control")
+                                          (type "text")
+                                          (placeholder "tag1 tag2 tag3 ...")
+                                          (name "tags")
+                                          (value ,tags-input)
+                                          (id "tags")))))
+                        (div ((class "form-group"))
+                             (div ((class "col-sm-offset-2 col-sm-10"))
+                                  (button ((type "submit")
+                                           (class "btn btn-primary"))
+                                          (span ((class "glyphicon glyphicon-search")))
+                                          " Search")))
+                        (div ((class "search-results"))
+                             ,@(maybe-splice
+                                (or (pair? tags) (not (equal? search-text "")))
+                                (package-summary-table (package-search search-text tags)))))))
