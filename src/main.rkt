@@ -622,11 +622,6 @@
                                             `(li "Dependency problems: "
                                               ,(buildhost-link (@ pkg build dep-failure-log) "details")))
                                          )))
-                             (tr (th "Modules")
-                                 (td (ul ((class "module-list"))
-                                         ,@(for/list ((mod (or (@ pkg modules) '())))
-                                             (match-define (list kind path) mod)
-                                             `(li ((class ,kind)) ,path)))))
                              ,@(let* ((vs (or (@ pkg versions) (hash)))
                                       (empty-checksum "9f098dddde7f217879070816090c1e8e74d49432")
                                       (vs (for/hash (((k v) (in-hash vs))
@@ -651,6 +646,11 @@
                                  (td ,(utc->string (@ pkg last-checked))))
                              (tr (th "Last edited")
                                  (td ,(utc->string (@ pkg last-edit))))
+                             (tr (th "Modules")
+                                 (td (ul ((class "module-list"))
+                                         ,@(for/list ((mod (or (@ pkg modules) '())))
+                                             (match-define (list kind path) mod)
+                                             `(li ((class ,kind)) ,path)))))
                              )))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
