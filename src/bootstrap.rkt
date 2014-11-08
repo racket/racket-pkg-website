@@ -3,6 +3,7 @@
 
 (provide bootstrap-project-name
          bootstrap-project-link
+         bootstrap-navbar-header
          bootstrap-navigation
          bootstrap-active-navigation
          bootstrap-navbar-extension
@@ -10,7 +11,8 @@
          bootstrap-page-scripts
          bootstrap-cookies
 
-	 bootstrap-response
+         bootstrap-response
+	 bootstrap-redirect
 	 bootstrap-radio
 	 bootstrap-fieldset
 	 bootstrap-button)
@@ -21,6 +23,7 @@
 
 (define bootstrap-project-name (make-parameter "Project"))
 (define bootstrap-project-link (make-parameter "/"))
+(define bootstrap-navbar-header (make-parameter #f))
 (define bootstrap-navigation (make-parameter '(("Home" "/"))))
 (define bootstrap-active-navigation (make-parameter #f))
 (define bootstrap-navbar-extension (make-parameter '()))
@@ -53,8 +56,9 @@
       (nav ((class "navbar navbar-inverse navbar-fixed-top") (role "navigation"))
 	   (div ((class "container"))
 		(div ((class "navbar-header"))
-		     (a ((class "navbar-brand") (href ,(bootstrap-project-link)))
-                        ,(bootstrap-project-name)))
+                     ,(or (bootstrap-navbar-header)
+                          `(a ((class "navbar-brand") (href ,(bootstrap-project-link)))
+                            ,(bootstrap-project-name))))
 		(div ((id "navbar") (class "collapse navbar-collapse"))
 		     (ul ((class "nav navbar-nav"))
 			 ,@(for/list ((n (bootstrap-navigation)))
@@ -73,6 +77,14 @@
       (script ((type "text/javascript") (src "/bootstrap/js/bootstrap.min.js")))
       ,@(for/list ((script (bootstrap-page-scripts)))
           `(script ((type "text/javascript") (src ,script))))))))
+
+(define (bootstrap-redirect url
+                            #:permanent? [permanent? #f]
+                            #:headers [headers '()])
+  (redirect-to url
+               (if permanent? permanently temporarily)
+               #:headers (append (map cookie->header (bootstrap-cookies))
+                                 headers)))
 
 ;; String String XExpr ... -> XExpr
 ;; Constructs Bootstrap boilerplate for a radio button.

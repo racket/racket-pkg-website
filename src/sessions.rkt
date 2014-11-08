@@ -3,6 +3,7 @@
 (provide session-lifetime
          (struct-out session)
          create-session!
+         destroy-session!
          lookup-session/touch!
          lookup-session)
 
@@ -10,7 +11,7 @@
 
 (define session-lifetime (make-parameter (* 7 24 60 60 1000))) ;; one week in milliseconds
 
-(struct session (expiry email password) #:transparent)
+(struct session (key expiry email password) #:transparent)
 
 (define sessions (make-hash))
 
@@ -26,10 +27,14 @@
   (define session-key (bytes->string/utf-8 (random-bytes/base64 32)))
   (hash-set! sessions
              session-key
-             (session (+ (current-inexact-milliseconds) (session-lifetime))
+             (session session-key
+                      (+ (current-inexact-milliseconds) (session-lifetime))
                       email
                       password))
   session-key)
+
+(define (destroy-session! session-key)
+  (hash-remove! sessions session-key))
 
 (define (lookup-session/touch! session-key)
   (define s (hash-ref sessions session-key (lambda () #f)))

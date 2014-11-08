@@ -4,6 +4,7 @@
 
 body {
     padding-top: 50px;
+    padding-bottom: 50px;
     font-family: "Open Sans";
     font-weight: 400;
     color: #1e1e1e;
@@ -18,7 +19,7 @@ body {
 
 .doctags-label { font-weight: bold; }
 
-table.packages, table.package-details {
+table.packages, table.package-details, table.package-versions {
     width: 100%;
 }
 
@@ -45,3 +46,30 @@ ul.module-list {
 }
 
 .search-results table { margin-top: 3em; }
+
+input#new_version {
+    width: 6em;
+}
+
+.confirm-package-deletion {
+    background-color: red;
+    padding: 2em;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 50%;
+    text-align: center;
+    color: white;
+    border: solid yellow 1em;
+}
+.confirm-package-deletion h2 {
+    margin: 0;
+}
+
+.package-count {
+    font-size: 120%;
+}
+
+.jumbotron .build-status {
+    font-size: 100%;
+}
