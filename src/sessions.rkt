@@ -1,0 +1,43 @@
+#lang racket/base
+
+(provide session-lifetime
+         (struct-out session)
+         create-session!
+         lookup-session/touch!
+         lookup-session)
+
+(require "randomness.rkt")
+
+(define session-lifetime (make-parameter (* 7 24 60 60 1000))) ;; one week in milliseconds
+
+(struct session (expiry email password) #:transparent)
+
+(define sessions (make-hash))
+
+(define (expire-sessions!)
+  (define now (current-inexact-milliseconds))
+  (for ((session-key (hash-keys sessions)))
+    (define s (hash-ref sessions session-key (lambda () #f)))
+    (when (and s (<= (session-expiry s) now))
+      (hash-remove! sessions session-key))))
+
+(define (create-session! email password)
+  (expire-sessions!)
+  (define session-key (bytes->string/utf-8 (random-bytes/base64 32)))
+  (hash-set! sessions
+             session-key
+             (session (+ (current-inexact-milliseconds) (session-lifetime))
+                      email
+                      password))
+  session-key)
+
+(define (lookup-session/touch! session-key)
+  (define s (hash-ref sessions session-key (lambda () #f)))
+  (and s
+       (let ((s1 (struct-copy session s [expiry (+ (current-inexact-milliseconds)
+                                                   (session-lifetime))])))
+         (hash-set! sessions session-key s1)
+         s1)))
+
+(define (lookup-session session-key)
+  (hash-ref sessions session-key (lambda () #f)))

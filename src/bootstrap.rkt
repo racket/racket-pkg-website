@@ -5,9 +5,10 @@
          bootstrap-project-link
          bootstrap-navigation
          bootstrap-active-navigation
-         bootstrap-navbar-extension-fn
+         bootstrap-navbar-extension
          bootstrap-page-stylesheets
          bootstrap-page-scripts
+         bootstrap-cookies
 
 	 bootstrap-response
 	 bootstrap-radio
@@ -22,9 +23,10 @@
 (define bootstrap-project-link (make-parameter "/"))
 (define bootstrap-navigation (make-parameter '(("Home" "/"))))
 (define bootstrap-active-navigation (make-parameter #f))
-(define bootstrap-navbar-extension-fn (make-parameter (lambda () '())))
+(define bootstrap-navbar-extension (make-parameter '()))
 (define bootstrap-page-stylesheets (make-parameter '()))
 (define bootstrap-page-scripts (make-parameter '()))
+(define bootstrap-cookies (make-parameter '()))
 
 (define (bootstrap-response title
 			    #:title-element [title-element `(h1 ,title)]
@@ -35,6 +37,7 @@
   (response/xexpr
    #:code code
    #:message message
+   #:cookies (bootstrap-cookies)
    #:preamble #"<!DOCTYPE html>\n"
    `(html
      (head (meta ((charset "utf-8")))
@@ -45,9 +48,7 @@
            (link ((rel "stylesheet") (href "/style.css") (type "text/css")))
 	   ,@(for/list ((sheet (bootstrap-page-stylesheets)))
 	       `(link ((rel "stylesheet") (href ,sheet) (type "text/css"))))
-	   (script ((type "text/javascript") (src "/site.js")))
-	   ,@(for/list ((header-script (bootstrap-page-scripts)))
-	       `(script ((type "text/javascript") (src ,header-script)))))
+	   (script ((type "text/javascript") (src "/site.js"))))
      (body
       (nav ((class "navbar navbar-inverse navbar-fixed-top") (role "navigation"))
 	   (div ((class "container"))
@@ -61,7 +62,7 @@
 			     `(li ,@(maybe-splice (equal? text (bootstrap-active-navigation))
                                                   `((class "active")))
 				  (a ((href ,url)) ,text))))
-                     ,@((bootstrap-navbar-extension-fn))
+                     ,@(bootstrap-navbar-extension)
                      )))
       (div ((class "container"))
 	   ,title-element
@@ -69,7 +70,9 @@
 
       (script ((type "text/javascript")
                (src "https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js")))
-      (script ((type "text/javascript") (src "/bootstrap/js/bootstrap.min.js")))))))
+      (script ((type "text/javascript") (src "/bootstrap/js/bootstrap.min.js")))
+      ,@(for/list ((script (bootstrap-page-scripts)))
+          `(script ((type "text/javascript") (src ,script))))))))
 
 ;; String String XExpr ... -> XExpr
 ;; Constructs Bootstrap boilerplate for a radio button.
