@@ -21,7 +21,7 @@
 (bootstrap-project-name
  `(a ((class "four columns logo")
       (href "http://www.racket-lang.org/"))
-   (img ((src "http://pkgs.racket-lang.org/logo-and-text.png")
+   (img ((src "/logo-and-text.png")
          (height "50")
          (alt "Racket Package Index")))))
 
@@ -96,8 +96,7 @@
                       (bootstrap-cookies
                        (if session
                            (list (make-cookie COOKIE session-key
-                                              ;; TODO #:secure? #t
-                                              ))
+                                              #:secure? #t))
                            (list (make-cookie COOKIE ""
                                               #:expires "Thu, 01 Jan 1970 00:00:00 GMT")))))
          (body))))))
