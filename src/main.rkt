@@ -469,7 +469,7 @@
                          `(div ((class "jumbotron"))
                            (h1 "Racket Package Index")
                            (p "These are the packages available via the "
-                              (a ((href "docs.racket-lang.org/pkg/getting-started.html"))
+                              (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
                                  "Racket package system") ".")
                            (p "Simply run " (kbd "raco pkg install " (var "package-name"))
                               " to install a package.")
