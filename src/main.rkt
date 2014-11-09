@@ -411,51 +411,53 @@
   (define now (/ (current-inexact-milliseconds) 1000))
   `(table
     ((class "packages sortable"))
-    (tr
-     (th "Package")
-     (th "Description")
-     (th "Build"))
-    ,@(maybe-splice (null? package-names)
-                    `(tr (td ((colspan "3"))
-                             (div ((class "alert alert-info"))
-                                  "No packages found."))))
-    ,@(for/list ((package-name package-names))
-        (define pkg (package-detail package-name))
-        `(tr
-          (td (h2 ,(package-link package-name))
-              ,(authors-list (@ pkg authors))
-              ,@(maybe-splice
-                 (< (- now (or (@ pkg last-updated) 0)) recent-seconds)
-                 `(span ((class "label label-info")) "Updated"))
-              )
-          (td (p ,(@ pkg description))
-              ,@(maybe-splice
-                 (pair? (@ pkg build docs))
-                 `(div
-                   (span ((class "doctags-label")) "Docs: ")
-                   ,(doc-links (@ pkg build docs))))
-              ,@(maybe-splice
-                 (pair? (@ pkg tags))
-                 `(div
-                   (span ((class "doctags-label")) "Tags: ")
-                   ,(tag-links (@ pkg tags)))))
-          ,(cond
-            [(@ pkg build failure-log)
-             `(td ((class "build_red"))
-               ,(buildhost-link (@ pkg build failure-log) "fails"))]
-            [(and (@ pkg build success-log)
-                  (@ pkg build dep-failure-log))
-             `(td ((class "build_yellow"))
-               ,(buildhost-link (@ pkg build success-log)
-                                "succeeds")
-               " with "
-               ,(buildhost-link (@ pkg build dep-failure-log)
-                                "dependency problems"))]
-            [(@ pkg build success-log)
-             `(td ((class "build_green"))
-               ,(buildhost-link (@ pkg build success-log) "succeeds"))]
-            [else
-             `(td)])))))
+    (thead
+     (tr
+      (th "Package")
+      (th "Description")
+      (th "Build")))
+    (tbody
+     ,@(maybe-splice (null? package-names)
+                     `(tr (td ((colspan "3"))
+                              (div ((class "alert alert-info"))
+                                   "No packages found."))))
+     ,@(for/list ((package-name package-names))
+         (define pkg (package-detail package-name))
+         `(tr
+           (td (h2 ,(package-link package-name))
+               ,(authors-list (@ pkg authors))
+               ,@(maybe-splice
+                  (< (- now (or (@ pkg last-updated) 0)) recent-seconds)
+                  `(span ((class "label label-info")) "Updated"))
+               )
+           (td (p ,(@ pkg description))
+               ,@(maybe-splice
+                  (pair? (@ pkg build docs))
+                  `(div
+                    (span ((class "doctags-label")) "Docs: ")
+                    ,(doc-links (@ pkg build docs))))
+               ,@(maybe-splice
+                  (pair? (@ pkg tags))
+                  `(div
+                    (span ((class "doctags-label")) "Tags: ")
+                    ,(tag-links (@ pkg tags)))))
+           ,(cond
+             [(@ pkg build failure-log)
+              `(td ((class "build_red"))
+                ,(buildhost-link (@ pkg build failure-log) "fails"))]
+             [(and (@ pkg build success-log)
+                   (@ pkg build dep-failure-log))
+              `(td ((class "build_yellow"))
+                ,(buildhost-link (@ pkg build success-log)
+                                 "succeeds")
+                " with "
+                ,(buildhost-link (@ pkg build dep-failure-log)
+                                 "dependency problems"))]
+             [(@ pkg build success-log)
+              `(td ((class "build_green"))
+                ,(buildhost-link (@ pkg build success-log) "succeeds"))]
+             [else
+              `(td)]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

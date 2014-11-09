@@ -7,8 +7,6 @@ Want to be able to see packages with build problems, and packages without build 
 Some way of getting a list of all packages
  - "you should have the "285 package in the index" have a link like "hiding main-distribution (show)""
 
-Want to be able to sort result tables
-
 you should be able to specify git repos over http/https
 you should be able to specify subdirs in git repos
 you should check the existence of repos/github repos/urls/etc via XHR

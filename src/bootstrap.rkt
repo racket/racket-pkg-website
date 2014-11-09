@@ -50,8 +50,7 @@
 	   (link ((rel "stylesheet") (href "/bootstrap/css/bootstrap.min.css") (type "text/css")))
            (link ((rel "stylesheet") (href "/style.css") (type "text/css")))
 	   ,@(for/list ((sheet (bootstrap-page-stylesheets)))
-	       `(link ((rel "stylesheet") (href ,sheet) (type "text/css"))))
-	   (script ((type "text/javascript") (src "/site.js"))))
+	       `(link ((rel "stylesheet") (href ,sheet) (type "text/css")))))
      (body
       (nav ((class "navbar navbar-inverse navbar-fixed-top") (role "navigation"))
 	   (div ((class "container"))
@@ -72,9 +71,10 @@
 	   ,title-element
 	   ,@body-contents)
 
-      (script ((type "text/javascript")
-               (src "https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js")))
+      (script ((type "text/javascript") (src "/jquery.min.js")))
+      (script ((type "text/javascript") (src "/jquery.tablesorter.min.js")))
       (script ((type "text/javascript") (src "/bootstrap/js/bootstrap.min.js")))
+      (script ((type "text/javascript") (src "/site.js")))
       ,@(for/list ((script (bootstrap-page-scripts)))
           `(script ((type "text/javascript") (src ,script))))))))
 

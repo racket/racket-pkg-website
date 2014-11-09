@@ -94,3 +94,7 @@ input#new_version {
     font-size: 100%;
     text-decoration: none;
 }
+
+/* Sortable tables */
+th.headerSortUp::after { content: " ▲"; }
+th.headerSortDown::after { content: " ▼"; }
