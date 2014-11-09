@@ -194,7 +194,7 @@
        (regexp-match? re (@ pkg _SEARCHABLE-TEXT_))))
 
 (define (package-search text tags)
-  (define res (map (lambda (r) (pregexp (format "(?i:~a)" r))) (string-split text)))
+  (define res (map (lambda (r) (regexp (regexp-quote r))) (string-split text)))
   (define packages (manager-rpc 'packages))
   (sort-package-names
    (filter (lambda (package-name)
