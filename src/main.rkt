@@ -908,12 +908,16 @@
                        ;;         Right up there with "parse error".
                        draft))]
     ["add_version"
-     (if (assoc new_version (draft-package-versions draft))
-         (package-form (format "Could not add version ~a, as it already exists." new_version)
-                       draft)
-         (package-form #f (struct-copy draft-package draft
-                                       [versions (cons (list new_version default-empty-source-url)
-                                                       (draft-package-versions draft))])))]
+     (cond
+      [(equal? (string-trim new_version) "")
+       (package-form "Please enter a version number to add." draft)]
+      [(assoc new_version (draft-package-versions draft))
+       (package-form (format "Could not add version ~a, as it already exists." new_version)
+                     draft)]
+      [else
+       (package-form #f (struct-copy draft-package draft
+                                     [versions (cons (list new_version default-empty-source-url)
+                                                     (draft-package-versions draft))]))])]
     [(regexp #px"^version__(.*)__delete$" (list _ version))
      (package-form #f (struct-copy draft-package draft
                                    [versions (filter (lambda (v)
