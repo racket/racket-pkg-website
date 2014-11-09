@@ -11,6 +11,8 @@ Some way of getting a list of all packages
 
 Want to be able to sort result tables
 
+Searching for e.g. "(list 1 2)" causes a regexp compilation failure.
+
 you should be able to specify git repos over http/https
 you should be able to specify subdirs in git repos
 you should check the existence of repos/github repos/urls/etc via XHR
