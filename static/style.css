@@ -84,6 +84,8 @@ input#new_version {
     font-size: 120%;
 }
 
+.jumbotron .build-status a,
 .jumbotron .build-status {
     font-size: 100%;
+    text-decoration: none;
 }

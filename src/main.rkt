@@ -495,12 +495,13 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (build-status str label-type glyphicon)
+(define (build-status buildhost-url str label-type glyphicon)
   `(p ((class "build-status"))
     "Build status: "
-    (span ((class ,(format "label label-~a" label-type)))
-          (span ((class ,(format "glyphicon glyphicon-~a" glyphicon))))
-          " " ,str)))
+    ,(buildhost-link buildhost-url
+                     `(span ((class ,(format "label label-~a" label-type)))
+                       (span ((class ,(format "glyphicon glyphicon-~a" glyphicon))))
+                       " " ,str))))
 
 (define (package-page request package-name-str)
   (authentication-wrap
@@ -520,12 +521,15 @@
                              (p ,(@ pkg description))
                              ,(cond
                                [(@ pkg build failure-log)
-                                (build-status "failed" "danger" "fire")]
+                                (build-status (@ pkg build failure-log)
+                                              "failed" "danger" "fire")]
                                [(and (@ pkg build success-log)
                                      (@ pkg build dep-failure-log))
-                                (build-status "problems" "warning" "question-sign")]
+                                (build-status (@ pkg build dep-failure-log)
+                                              "problems" "warning" "question-sign")]
                                [(@ pkg build success-log)
-                                (build-status "ok" "success" "ok")]
+                                (build-status (@ pkg build success-log)
+                                              "ok" "success" "ok")]
                                [else
                                 ""])
                              (div ,@(let ((docs (or (@ pkg build docs) '())))

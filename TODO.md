@@ -17,7 +17,6 @@ you should check the existence of repos/github repos/urls/etc via XHR
 
 you should say how many packages there are in response to a search
 
-the build status "problems" button should be a link to the build status
 
 ## Design possibilities
 
