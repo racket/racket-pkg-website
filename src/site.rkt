@@ -1093,7 +1093,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (json-search-completions request)
-  (define completions (set-union (list->set (map ~a (all-package-names))) (all-tags)))
+  (define completions (set-union (list->set (map ~a (all-package-names))) (all-formal-tags)))
   (response/output #:mime-type #"application/json"
                    (lambda (response-port)
                      (write-json (set->list completions) response-port))))

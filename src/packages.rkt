@@ -4,6 +4,7 @@
          @ref
          all-package-names
          all-tags
+         all-formal-tags
          sorted-package-names
          package-detail
          package-search
@@ -41,6 +42,7 @@
 
 (struct package-manager-state (local-packages
                                all-tags
+                               all-formal-tags
                                next-fetch-deadline
                                next-bogus-timeout) #:prefab)
 
@@ -74,6 +76,7 @@
                                 (sleep 5)
                                 (package-manager))))
     (package-manager-main (package-manager-state (hash)
+                                                 (set)
                                                  (set)
                                                  0
                                                  base-bogus-timeout))))
@@ -110,7 +113,11 @@
                           ((pkg (in-hash-values (package-manager-state-local-packages state))))
                   (set-union ts (list->set
                                  (map symbol->string
-                                      (hash-keys (or (@ pkg search-terms) (hash)))))))]))
+                                      (hash-keys (or (@ pkg search-terms) (hash)))))))]
+               [all-formal-tags
+                (for/fold ((ts (set)))
+                          ((pkg (in-hash-values (package-manager-state-local-packages state))))
+                  (set-union ts (list->set (or (@ pkg tags) '()))))]))
 
 (define (replace-package old-pkg new-pkg state)
   (define local-packages (package-manager-state-local-packages state))
@@ -133,6 +140,7 @@
 (define (package-manager-main state)
   (match-define (package-manager-state local-packages
                                        all-tags
+                                       all-formal-tags
                                        next-fetch-deadline
                                        next-bogus-timeout) state)
   (match (sync (handle-evt (thread-receive-evt)
@@ -166,6 +174,8 @@
           (values (hash-keys local-packages) state)]
          [(list 'all-tags)
           (values all-tags state)]
+         [(list 'all-formal-tags)
+          (values all-formal-tags state)]
          [(list 'package-detail name)
           (define pkg (hash-ref local-packages name (lambda () #f)))
           (values (if (tombstone? pkg) #f pkg) state)]
@@ -187,6 +197,7 @@
 
 (define (all-package-names) (manager-rpc 'all-package-names))
 (define (all-tags) (manager-rpc 'all-tags))
+(define (all-formal-tags) (manager-rpc 'all-formal-tags))
 (define (package-detail package-name) (manager-rpc 'package-detail package-name))
 (define (replace-package! old-pkg new-pkg) (manager-rpc 'replace-package! old-pkg new-pkg))
 (define (delete-package! package-name) (manager-rpc 'delete-package! package-name))
