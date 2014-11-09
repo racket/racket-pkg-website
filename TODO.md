@@ -6,9 +6,17 @@ Somehow present all the tags available for filtering on the search page
  - maybe just a big list?
  - maybe checkboxes?
 
+Tab completion
+
+Package name completion
+
 Want to be able to see packages with build problems, and packages without build problems
  - on the search page? would a display of all tags help with this?
  - or on the main page?
+
+Find a better table-sorter plugin that makes sorting by multiple
+columns one after the other more discoverable. (At the moment, you
+have to hold down shift, and it selects them in the ~reverse order.)
 
 Some way of getting a list of all packages
  - "you should have the "285 package in the index" have a link like "hiding main-distribution (show)""
