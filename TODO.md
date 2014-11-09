@@ -16,5 +16,3 @@ Much more input validation is needed
 ## Design possibilities
 
 "the big gray box should probably not go all the way to the top of the page"
-
-The spacing between "sign in" and "register" looks odd
