@@ -1,8 +1,14 @@
-# Racket Bootstrap Template Website
+# Racket Package Library Website
 
 ## Local testing
 
-Running src/main.rkt starts a local server.
+You will need some dummy SSL keys. Run `make keys` to produce some.
+
+Running `src/main.rkt` starts a local server. For your convenience,
+
+    make compile run
+
+compiles the code and starts the server.
 
 ## Deployment
 
@@ -38,3 +44,20 @@ are useful for non-root administrators to control the running service.
 
 In particular, a git `post-receive` hook can be used to create the
 `.pull-required` signal in order to update the service on git push.
+
+## Copyright and License
+
+Copyright &copy; 2014 Tony Garnock-Jones
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
