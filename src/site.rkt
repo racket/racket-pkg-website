@@ -53,7 +53,7 @@
    [("create") edit-package-page]
    [("logout") logout-page]
    [("json" "search-completions") json-search-completions]
-   [("json" "all-tags") json-all-tags]
+   [("json" "tag-completions") json-tag-completions]
    ))
 
 (define (on-continuation-expiry request)
@@ -1098,7 +1098,7 @@
                    (lambda (response-port)
                      (write-json (set->list completions) response-port))))
 
-(define (json-all-tags request)
+(define (json-tag-completions request)
   (response/output #:mime-type #"application/json"
                    (lambda (response-port)
                      (write-json (set->list (all-tags)) response-port))))

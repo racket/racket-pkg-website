@@ -108,7 +108,9 @@
                [all-tags
                 (for/fold ((ts (set)))
                           ((pkg (in-hash-values (package-manager-state-local-packages state))))
-                  (set-union ts (list->set (or (@ pkg tags) '()))))]))
+                  (set-union ts (list->set
+                                 (map symbol->string
+                                      (hash-keys (or (@ pkg search-terms) (hash)))))))]))
 
 (define (replace-package old-pkg new-pkg state)
   (define local-packages (package-manager-state-local-packages state))

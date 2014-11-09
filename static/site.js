@@ -35,9 +35,10 @@ $(document).ready(function () {
   $("table.sortable").tablesorter();
 
   if ($("#tags").length) {
-    $.getJSON("/json/all-tags", function (allTags) {
-      allTags.sort();
-      PkgSite.multiTermComplete(PkgSite.preventTabMovingDuringSelection($("#tags")), allTags);
+    $.getJSON("/json/tag-completions", function (tagCompletions) {
+      tagCompletions.sort();
+      PkgSite.multiTermComplete(PkgSite.preventTabMovingDuringSelection($("#tags")),
+				tagCompletions);
     });
   }
 });
