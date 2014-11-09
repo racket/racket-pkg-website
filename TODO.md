@@ -1,7 +1,5 @@
 Documentation/help text on the edit package page?
 
-Multi-documentation isn't working (e.g. scribble-doc)
-
 Want to be able to see packages with build problems, and packages without build problems
  - on the search page? would a display of all tags help with this?
  - or on the main page?

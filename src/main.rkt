@@ -532,7 +532,8 @@
                                               "ok" "success" "ok")]
                                [else
                                 ""])
-                             (div ,@(let ((docs (or (@ pkg build docs) '())))
+                             (div ((class "dropdown"))
+                                  ,@(let ((docs (or (@ pkg build docs) '())))
                                       (match docs
                                         [(list)
                                          `()]
