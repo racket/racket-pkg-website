@@ -560,7 +560,11 @@
                                        `(a ((class "btn btn-default btn-lg")
                                             (href ,(@ default-version source_url)))
                                          (span ((class "glyphicon glyphicon-download")))
-                                         " Snapshot")
+                                         " Download"
+                                         ;; ,(if (regexp-match? "(?i:\\.zip$)" (or (@ default-version source_url) ""))
+                                         ;;      " Zip file"
+                                         ;;      " Download")
+                                         )
                                        `(a ((class "btn btn-default btn-lg")
                                             (href ,(@ default-version source_url)))
                                          (span ((class "glyphicon glyphicon-link")))

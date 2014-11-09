@@ -13,8 +13,6 @@ you should be able to specify git repos over http/https
 you should be able to specify subdirs in git repos
 you should check the existence of repos/github repos/urls/etc via XHR
 
-change from "snapshot" to "zip file", depending. ("download" i guess if it's not a zip)
-
 don't let people enter blank version numbers
 
 Much more input validation is needed
