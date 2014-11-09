@@ -41,7 +41,7 @@
     (define request-url
       (string->url
        (format "~a~a?~a"
-               (jsonp-baseurl)
+               (or (jsonp-baseurl) (error 'jsonp-rpc! "jsonp-baseurl is not set"))
                site-relative-url
                (alist->form-urlencoded parameters))))
     (define-values (body-port response-headers) (get-pure-port/headers request-url))

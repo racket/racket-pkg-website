@@ -4,6 +4,8 @@
 (provide poll-signal
 	 start-restart-signal-watcher)
 
+(require "reload.rkt")
+
 (define (poll-signal signal-file-name message handler)
   (when (file-exists? signal-file-name)
     (log-info message)
@@ -24,5 +26,8 @@
        (poll-signal "../signals/.restart-required"
 		    "Restart signal received - attempting to restart"
 		    (lambda () (exit 0)))
+       (poll-signal "../signals/.reload"
+                    "Reload signal received - attempting to reload code"
+                    (lambda () (reload!)))
        (sleep 0.5)
        (loop)))))

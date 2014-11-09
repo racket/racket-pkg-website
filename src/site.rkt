@@ -19,20 +19,26 @@
 (define nav-index "Package Index")
 (define nav-search "Search")
 
-(bootstrap-navbar-header
- `(a ((href "http://www.racket-lang.org/"))
-   (img ((src "/logo-and-text.png")
-         (height "60")
-         (alt "Racket Package Index")))))
+(define navbar-header
+  `(a ((href "http://www.racket-lang.org/"))
+    (img ((src "/logo-and-text.png")
+          (height "60")
+          (alt "Racket Package Index")))))
 
-(bootstrap-navigation `((,nav-index "/")
-                        (,nav-search "/search")
-                        ;; ((div ,(glyphicon 'download-alt)
-                        ;;       " Download")
-                        ;;  "http://download.racket-lang.org/")
-                        ))
+(define navigation `((,nav-index "/")
+                     (,nav-search "/search")
+                     ;; ((div ,(glyphicon 'download-alt)
+                     ;;       " Download")
+                     ;;  "http://download.racket-lang.org/")
+                     ))
 
-(jsonp-baseurl "https://pkgd.racket-lang.org")
+(define backend-baseurl "https://pkgd.racket-lang.org")
+
+(define default-empty-source-url "git://github.com//")
+(define COOKIE "pltsession")
+(define recent-seconds (* 2 24 60 60)) ;; two days
+
+(struct draft-package (old-name name description authors tags versions) #:prefab)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -51,17 +57,17 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define default-empty-source-url "git://github.com//")
-(define COOKIE "pltsession")
-(define recent-seconds (* 2 24 60 60)) ;; two days
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (define-syntax-rule (authentication-wrap #:request request body ...)
   (authentication-wrap* #f request (lambda () body ...)))
 
 (define-syntax-rule (authentication-wrap/require-login #:request request body ...)
   (authentication-wrap* #t request (lambda () body ...)))
+
+(define-syntax-rule (with-site-config body ...)
+  (parameterize ((bootstrap-navbar-header navbar-header)
+                 (bootstrap-navigation navigation)
+                 (jsonp-baseurl backend-baseurl))
+    body ...))
 
 (define clear-session-cookie (make-cookie COOKIE
                                           ""
@@ -90,7 +96,8 @@
                       (if new-session-key
                           (list (make-cookie COOKIE new-session-key #:path "/" #:secure? #t))
                           (list clear-session-cookie))))
-        (bootstrap-redirect (url->string (request-uri request)))))
+        (with-site-config
+         (bootstrap-redirect (url->string (request-uri request))))))
 
     (send/suspend/dispatch
      (lambda (embed-url)
@@ -137,7 +144,7 @@
                                                   #:path "/"
                                                   #:secure? #t))
                                (list))))
-             (body)))))))
+             (with-site-config (body))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -191,26 +198,27 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (login-page [error-message #f])
-  (send/suspend/dispatch
-   (lambda (embed-url)
-     (bootstrap-response "Login"
-                         `(form ((class "form-horizontal")
-                                 (method "post")
-                                 (action ,(embed-url process-login-credentials))
-                                 (role "form"))
-                           ,(form-group 2 2 (label "email" "Email address")
-                                        0 5 (email-input "email"))
-                           ,(form-group 2 2 (label "password" "Password:")
-                                        0 5 (password-input "password"))
-                           ,(form-group 4 5
-                                        `(a ((href ,(embed-url (lambda (req) (register-page)))))
-                                          "Need to reset your password?"))
-                           ,@(maybe-splice
-                              error-message
-                              (form-group 4 5
-                                          `(div ((class "alert alert-danger"))
-                                            (p ,error-message))))
-                           ,(form-group 4 5 (primary-button "Log in")))))))
+  (with-site-config
+   (send/suspend/dispatch
+    (lambda (embed-url)
+      (bootstrap-response "Login"
+                          `(form ((class "form-horizontal")
+                                  (method "post")
+                                  (action ,(embed-url process-login-credentials))
+                                  (role "form"))
+                            ,(form-group 2 2 (label "email" "Email address")
+                                         0 5 (email-input "email"))
+                            ,(form-group 2 2 (label "password" "Password:")
+                                         0 5 (password-input "password"))
+                            ,(form-group 4 5
+                                         `(a ((href ,(embed-url (lambda (req) (register-page)))))
+                                           "Need to reset your password?"))
+                            ,@(maybe-splice
+                               error-message
+                               (form-group 4 5
+                                           `(div ((class "alert alert-danger"))
+                                             (p ,error-message))))
+                            ,(form-group 4 5 (primary-button "Log in"))))))))
 
 (define (authenticate-with-server! email password code)
   (jsonp-rpc! #:sensitive? #t
@@ -236,41 +244,42 @@
 (define (register-page #:email [email ""]
                        #:code [code ""]
                        #:error-message [error-message #f])
-  (send/suspend/dispatch
-   (lambda (embed-url)
-     (bootstrap-response "Register/Reset Account"
-                         #:title-element ""
-                         `(div
-                           (h1 "Got a registration or reset code?")
-                           (p "Great! Enter it below, with your chosen password, to log in.")
-                           (form ((class "form-horizontal")
-                                  (method "post")
-                                  (action ,(embed-url apply-account-code))
-                                  (role "form"))
-                                 ,(form-group 2 2 (label "email" "Email address")
-                                              0 5 (email-input "email" email))
-                                 ,(form-group 2 2 (label "code" "Code")
-                                              0 5 (text-input "code" code))
-                                 ,(form-group 2 2 (label "password" "Password")
-                                              0 5 (password-input "password"))
-                                 ,(form-group 2 2 (label "password" "Confirm password")
-                                              0 5 (password-input "confirm_password"))
-                                 ,@(maybe-splice
-                                    error-message
-                                    (form-group 4 5
-                                                `(div ((class "alert alert-danger"))
-                                                  (p ,error-message))))
-                                 ,(form-group 4 5 (primary-button "Continue"))))
-                         `(div
-                           (h1 "Need a code?")
-                           (p "Enter your email address below, and we'll send you one.")
-                           (form ((class "form-horizontal")
-                                  (method "post")
-                                  (action ,(embed-url notify-of-emailing))
-                                  (role "form"))
-                                 ,(form-group 2 2 (label "email" "Email address")
-                                              0 5 (email-input "email_for_code"))
-                                 ,(form-group 4 5 (primary-button "Email me a code"))))))))
+  (with-site-config
+   (send/suspend/dispatch
+    (lambda (embed-url)
+      (bootstrap-response "Register/Reset Account"
+                          #:title-element ""
+                          `(div
+                            (h1 "Got a registration or reset code?")
+                            (p "Great! Enter it below, with your chosen password, to log in.")
+                            (form ((class "form-horizontal")
+                                   (method "post")
+                                   (action ,(embed-url apply-account-code))
+                                   (role "form"))
+                                  ,(form-group 2 2 (label "email" "Email address")
+                                               0 5 (email-input "email" email))
+                                  ,(form-group 2 2 (label "code" "Code")
+                                               0 5 (text-input "code" code))
+                                  ,(form-group 2 2 (label "password" "Password")
+                                               0 5 (password-input "password"))
+                                  ,(form-group 2 2 (label "password" "Confirm password")
+                                               0 5 (password-input "confirm_password"))
+                                  ,@(maybe-splice
+                                     error-message
+                                     (form-group 4 5
+                                                 `(div ((class "alert alert-danger"))
+                                                   (p ,error-message))))
+                                  ,(form-group 4 5 (primary-button "Continue"))))
+                          `(div
+                            (h1 "Need a code?")
+                            (p "Enter your email address below, and we'll send you one.")
+                            (form ((class "form-horizontal")
+                                   (method "post")
+                                   (action ,(embed-url notify-of-emailing))
+                                   (role "form"))
+                                  ,(form-group 2 2 (label "email" "Email address")
+                                               0 5 (email-input "email_for_code"))
+                                  ,(form-group 4 5 (primary-button "Email me a code")))))))))
 
 (define (apply-account-code request)
   (define-form-bindings request (email code password confirm_password))
@@ -304,16 +313,17 @@
   (summarise-code-emailing "Account registration/reset code emailed" email_for_code))
 
 (define (summarise-code-emailing reason email)
-  (send/suspend/dispatch
-   (lambda (embed-url)
-     (bootstrap-response reason
-                         `(p
-                           "We've emailed an account registration/reset code to "
-                           (code ,email) ". Please check your email and then click "
-                           "the button to continue:")
-                         `(a ((class "btn btn-primary")
-                              (href ,(embed-url (lambda (req) (register-page)))))
-                           "Enter your code")))))
+  (with-site-config
+   (send/suspend/dispatch
+    (lambda (embed-url)
+      (bootstrap-response reason
+                          `(p
+                            "We've emailed an account registration/reset code to "
+                            (code ,email) ". Please check your email and then click "
+                            "the button to continue:")
+                          `(a ((class "btn btn-primary")
+                               (href ,(embed-url (lambda (req) (register-page)))))
+                            "Enter your code"))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -445,9 +455,10 @@
                          (package-summary-table package-name-list)))))
 
 (define (logout-page request)
-  (parameterize ((bootstrap-cookies (list clear-session-cookie)))
-    (when (current-session) (destroy-session! (session-key (current-session))))
-    (bootstrap-redirect (named-url main-page))))
+  (with-site-config
+   (parameterize ((bootstrap-cookies (list clear-session-cookie)))
+     (when (current-session) (destroy-session! (session-key (current-session))))
+     (bootstrap-redirect (named-url main-page)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -616,8 +627,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(struct draft-package (old-name name description authors tags versions) #:transparent)
-
 (define (edit-package-page request [package-name-str ""])
   (authentication-wrap/require-login
    #:request request
@@ -655,161 +664,163 @@
   (cons default (remove default alist)))
 
 (define (package-form error-message draft)
-  (send/suspend/dispatch
-   (lambda (embed-url)
+  (with-site-config
+   (send/suspend/dispatch
+    (lambda (embed-url)
 
-     (define (build-versions-table)
-       `(table ((class "package-versions"))
-         (tr (th "Version")
-             (th "Source"))
-         ,@(for/list ((v (put-default-first
-                          (draft-package-versions draft))))
-             (match-define (list version source) v)
-             (define (control-name c) (format "version__~a__~a" version c))
-             (define (group-name c) (format "version__~a__~a__group" version c))
-             (define (textfield name label-text value [placeholder ""])
-               (row #:id (group-name name)
-                    0 3
-                    (and label-text (label (control-name name) label-text))
-                    0 (if label-text 9 12)
-                    (text-input (control-name name) value #:placeholder placeholder)))
-             (define-values (source-type simple-url g-host g-user g-project g-branch)
-               (match source
-                 [(pregexp #px"github://github\\.com/([^/]*)/([^/]*)(/([^/]*)/?)?"
-                           (list _ u p _ b))
-                  (values "github" "" "github.com" u p (if (equal? b "master") "" (or b #f)))]
-                 [(pregexp #px"git://([^/]*)/([^/]*)/([^/]*)(/([^/]*)/?)?"
-                           (list _ h u p _ b))
-                  (values "git" "" h u p (if (equal? b "master") "" (or b "")))]
-                 [_
-                  (values "simple" source "" "" "" "")]))
-             `(tr
-               (td ,version
-                   ,@(maybe-splice
-                      (not (equal? version "default"))
-                      " "
-                      `(button ((class "btn btn-danger btn-xs")
+      (define (build-versions-table)
+        `(table ((class "package-versions"))
+          (tr (th "Version")
+              (th "Source"))
+          ,@(for/list ((v (put-default-first
+                           (draft-package-versions draft))))
+              (match-define (list version source) v)
+              (define (control-name c) (format "version__~a__~a" version c))
+              (define (group-name c) (format "version__~a__~a__group" version c))
+              (define (textfield name label-text value [placeholder ""])
+                (row #:id (group-name name)
+                     0 3
+                     (and label-text (label (control-name name) label-text))
+                     0 (if label-text 9 12)
+                     (text-input (control-name name) value #:placeholder placeholder)))
+              (define-values (source-type simple-url g-host g-user g-project g-branch)
+                (match source
+                  [(pregexp #px"github://github\\.com/([^/]*)/([^/]*)(/([^/]*)/?)?"
+                            (list _ u p _ b))
+                   (values "github" "" "github.com" u p (if (equal? b "master") "" (or b #f)))]
+                  [(pregexp #px"git://([^/]*)/([^/]*)/([^/]*)(/([^/]*)/?)?"
+                            (list _ h u p _ b))
+                   (values "git" "" h u p (if (equal? b "master") "" (or b "")))]
+                  [_
+                   (values "simple" source "" "" "" "")]))
+              `(tr
+                (td ,version
+                    ,@(maybe-splice
+                       (not (equal? version "default"))
+                       " "
+                       `(button ((class "btn btn-danger btn-xs")
+                                 (type "submit")
+                                 (name "action")
+                                 (value ,(control-name "delete")))
+                         ,(glyphicon 'trash))))
+                (td ,(row
+                      0 3 `(div ((id ,(group-name "type")))
+                            (select ((class "package-version-source-type")
+                                     (data-packageversion ,version)
+                                     (name ,(control-name "type")))
+                                    ,(package-source-option source-type
+                                                            "github"
+                                                            "Github Repository")
+                                    ,(package-source-option source-type
+                                                            "git"
+                                                            "Git Repository")
+                                    ,(package-source-option source-type
+                                                            "simple"
+                                                            "Simple URL")))
+                      0 9 `(div ((id ,(group-name "fields")))
+                            (div ((id ,(group-name "urlpreview"))
+                                  (class "row"))
+                                 (div ((class "col-sm-3"))
+                                      ,(label #f "URL preview"))
+                                 (div ((class "col-sm-9"))
+                                      (span ((class "form-control disabled")
+                                             (disabled "disabled")
+                                             (id ,(control-name "urlpreview"))))))
+                            ,(textfield "simple_url" #f simple-url)
+                            ,(textfield "g_host" "Repo Host" g-host)
+                            ,(textfield "g_user" "Repo User" g-user)
+                            ,(textfield "g_project" "Repo Project" g-project)
+                            ,(textfield "g_branch" "Repo Branch" g-branch "master"))))))
+
+          (tr (td ((colspan "2"))
+                  (div ((class "form-inline"))
+                       ,(text-input "new_version" #:placeholder "x.y.z")
+                       " "
+                       (button ((class "btn btn-success btn-xs")
                                 (type "submit")
                                 (name "action")
-                                (value ,(control-name "delete")))
-                        ,(glyphicon 'trash))))
-               (td ,(row
-                     0 3 `(div ((id ,(group-name "type")))
-                           (select ((class "package-version-source-type")
-                                    (data-packageversion ,version)
-                                    (name ,(control-name "type")))
-                                   ,(package-source-option source-type
-                                                           "github"
-                                                           "Github Repository")
-                                   ,(package-source-option source-type
-                                                           "git"
-                                                           "Git Repository")
-                                   ,(package-source-option source-type
-                                                           "simple"
-                                                           "Simple URL")))
-                     0 9 `(div ((id ,(group-name "fields")))
-                           (div ((id ,(group-name "urlpreview"))
-                                 (class "row"))
-                                (div ((class "col-sm-3"))
-                                     ,(label #f "URL preview"))
-                                (div ((class "col-sm-9"))
-                                     (span ((class "form-control disabled")
-                                            (disabled "disabled")
-                                            (id ,(control-name "urlpreview"))))))
-                           ,(textfield "simple_url" #f simple-url)
-                           ,(textfield "g_host" "Repo Host" g-host)
-                           ,(textfield "g_user" "Repo User" g-user)
-                           ,(textfield "g_project" "Repo Project" g-project)
-                           ,(textfield "g_branch" "Repo Branch" g-branch "master"))))))
+                                (value "add_version"))
+                               ,(glyphicon 'plus-sign) " Add new version"))))
+          ))
 
-         (tr (td ((colspan "2"))
-                 (div ((class "form-inline"))
-                      ,(text-input "new_version" #:placeholder "x.y.z")
-                      " "
-                      (button ((class "btn btn-success btn-xs")
-                               (type "submit")
-                               (name "action")
-                               (value "add_version"))
-                              ,(glyphicon 'plus-sign) " Add new version"))))
-         ))
-
-     (parameterize ((bootstrap-page-scripts '("/editpackage.js")))
-       (define old-name (draft-package-old-name draft))
-       (define has-old-name? (not (equal? old-name "")))
-       (bootstrap-response (if has-old-name?
-                               (format "Editing package ~a" old-name)
-                               "Creating a new package")
-                           (if error-message
-                               `(div ((class "alert alert-danger"))
-                                 ,(glyphicon 'exclamation-sign) " " ,error-message)
-                               "")
-                           `(form ((id "edit-package-form")
-                                   (method "post")
-                                   (action ,(embed-url (update-draft draft)))
-                                   (role "form"))
-                             (div ((class "container")) ;; TODO: remove??
-                                  (div ((class "row"))
-                                       (div ((class "form-group col-sm-6"))
-                                            ,(label "name" "Package Name")
-                                            ,(text-input "name" (~a (draft-package-name draft))))
-                                       (div ((class "form-group col-sm-6"))
-                                            ,(label "tags" "Package Tags (space-separated)")
-                                            ,(text-input "tags" (string-join
-                                                                 (draft-package-tags draft)))))
-                                  (div ((class "row"))
-                                       (div ((class "form-group col-sm-6"))
-                                            ,(label "description" "Package Description")
-                                            (textarea ((class "form-control")
-                                                       (name "description")
-                                                       (id "description"))
-                                                      ,(draft-package-description draft)))
-                                       (div ((class "form-group col-sm-6"))
-                                            ,(label "authors"
-                                                    "Author email addresses (one per line)")
-                                            (textarea ((class "form-control")
-                                                       (name "authors")
-                                                       (id "authors"))
-                                                      ,(string-join (draft-package-authors draft)
-                                                                    "\n"))))
-                                  (div ((class "row"))
-                                       (div ((class "form-group col-sm-12"))
-                                            ,(label #f "Package Versions & Sources")
-                                            ,(build-versions-table)))
-                                  (div ((class "row"))
-                                       (div ((class "form-group col-sm-12"))
-                                            ,@(maybe-splice
-                                               has-old-name?
-                                               `(a ((class "btn btn-danger pull-right")
-                                                    (href ,(embed-url
-                                                            (confirm-package-deletion old-name))))
-                                                 ,(glyphicon 'trash) " Delete package")
-                                               " ")
-                                            (button ((type "submit")
-                                                     (class "btn btn-primary")
-                                                     (name "action")
-                                                     (value "save_changes"))
-                                                    ,(glyphicon 'save) " Save changes")
-                                            ,@(maybe-splice
-                                               has-old-name?
-                                               " "
-                                               `(a ((class "btn btn-default")
-                                                    (href ,(named-url package-page old-name)))
-                                                 "Cancel changes and return to package page"))))))
-                           )))))
+      (parameterize ((bootstrap-page-scripts '("/editpackage.js")))
+        (define old-name (draft-package-old-name draft))
+        (define has-old-name? (not (equal? old-name "")))
+        (bootstrap-response (if has-old-name?
+                                (format "Editing package ~a" old-name)
+                                "Creating a new package")
+                            (if error-message
+                                `(div ((class "alert alert-danger"))
+                                  ,(glyphicon 'exclamation-sign) " " ,error-message)
+                                "")
+                            `(form ((id "edit-package-form")
+                                    (method "post")
+                                    (action ,(embed-url (update-draft draft)))
+                                    (role "form"))
+                              (div ((class "container")) ;; TODO: remove??
+                                   (div ((class "row"))
+                                        (div ((class "form-group col-sm-6"))
+                                             ,(label "name" "Package Name")
+                                             ,(text-input "name" (~a (draft-package-name draft))))
+                                        (div ((class "form-group col-sm-6"))
+                                             ,(label "tags" "Package Tags (space-separated)")
+                                             ,(text-input "tags" (string-join
+                                                                  (draft-package-tags draft)))))
+                                   (div ((class "row"))
+                                        (div ((class "form-group col-sm-6"))
+                                             ,(label "description" "Package Description")
+                                             (textarea ((class "form-control")
+                                                        (name "description")
+                                                        (id "description"))
+                                                       ,(draft-package-description draft)))
+                                        (div ((class "form-group col-sm-6"))
+                                             ,(label "authors"
+                                                     "Author email addresses (one per line)")
+                                             (textarea ((class "form-control")
+                                                        (name "authors")
+                                                        (id "authors"))
+                                                       ,(string-join (draft-package-authors draft)
+                                                                     "\n"))))
+                                   (div ((class "row"))
+                                        (div ((class "form-group col-sm-12"))
+                                             ,(label #f "Package Versions & Sources")
+                                             ,(build-versions-table)))
+                                   (div ((class "row"))
+                                        (div ((class "form-group col-sm-12"))
+                                             ,@(maybe-splice
+                                                has-old-name?
+                                                `(a ((class "btn btn-danger pull-right")
+                                                     (href ,(embed-url
+                                                             (confirm-package-deletion old-name))))
+                                                  ,(glyphicon 'trash) " Delete package")
+                                                " ")
+                                             (button ((type "submit")
+                                                      (class "btn btn-primary")
+                                                      (name "action")
+                                                      (value "save_changes"))
+                                                     ,(glyphicon 'save) " Save changes")
+                                             ,@(maybe-splice
+                                                has-old-name?
+                                                " "
+                                                `(a ((class "btn btn-default")
+                                                     (href ,(named-url package-page old-name)))
+                                                  "Cancel changes and return to package page"))))))
+                            ))))))
 
 (define ((confirm-package-deletion package-name-str) request)
-  (send/suspend
-   (lambda (k-url)
-     (bootstrap-response "Confirm Package Deletion"
-                         `(div ((class "confirm-package-deletion"))
-                           (h2 ,(format "Delete ~a?" package-name-str))
-                           (p "This cannot be undone.")
-                           (a ((class "btn btn-default")
-                               (href ,k-url))
-                              "Confirm deletion")))))
-  (jsonp-rpc! "/jsonp/package/del" `((pkg . ,package-name-str)))
-  (delete-package! (string->symbol package-name-str))
-  (bootstrap-redirect (named-url main-page)))
+  (with-site-config
+   (send/suspend
+    (lambda (k-url)
+      (bootstrap-response "Confirm Package Deletion"
+                          `(div ((class "confirm-package-deletion"))
+                            (h2 ,(format "Delete ~a?" package-name-str))
+                            (p "This cannot be undone.")
+                            (a ((class "btn btn-default")
+                                (href ,k-url))
+                               "Confirm deletion")))))
+   (jsonp-rpc! "/jsonp/package/del" `((pkg . ,package-name-str)))
+   (delete-package! (string->symbol package-name-str))
+   (bootstrap-redirect (named-url main-page))))
 
 (define ((update-draft draft0) request)
   (define draft (read-draft-form draft0 (request-bindings request)))
@@ -817,7 +828,8 @@
   (match action
     ["save_changes"
      (if (save-draft! draft)
-         (bootstrap-redirect (named-url package-page (~a (draft-package-name draft))))
+         (with-site-config
+          (bootstrap-redirect (named-url package-page (~a (draft-package-name draft)))))
          (package-form "Save failed."
                        ;; ^ TODO: This is the worst error message.
                        ;;         Right up there with "parse error".

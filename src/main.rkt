@@ -2,11 +2,6 @@
 
 (module+ main
   (require "entrypoint.rkt")
-  (require "signals.rkt")
-  (start-restart-signal-watcher)
-  ;; (start-reloadable-service "site.rkt"
-  ;;                           'request-handler
-  ;;                           'on-continuation-expiry)
-  (require "site.rkt")
-  (start-service request-handler on-continuation-expiry)
-  )
+  (start-service #:reloadable? (getenv "SITE_RELOADABLE")
+                 (make-entry-point 'request-handler "site.rkt")
+                 (make-entry-point 'on-continuation-expiry "site.rkt")))
