@@ -13,6 +13,7 @@
 
          bootstrap-response
 	 bootstrap-redirect
+         bootstrap-continuation-expiry-handler
 
          add-classes
          glyphicon)
@@ -89,6 +90,18 @@
                (if permanent? permanently temporarily)
                #:headers (append (map cookie->header (bootstrap-cookies))
                                  headers)))
+
+;; Request -> Response
+(define (bootstrap-continuation-expiry-handler request)
+  (bootstrap-redirect (url->string (strip-parameters (request-uri request)))))
+
+;; URL -> URL
+(define (strip-parameters u)
+  (struct-copy url u
+               [path (map (lambda (element)
+                            (struct-copy path/param element
+                                         [param '()]))
+                          (url-path u))]))
 
 ;; (Listof (U Symbol String)) XExpr -> XExpr
 (define (add-classes classes x)

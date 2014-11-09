@@ -1,5 +1,7 @@
 Documentation/help text on the edit package page?
 
+Move `generic-input` and friends into bootstrap.rkt
+
 Somehow present all the tags available for filtering on the search page
  - maybe just a big list?
  - maybe checkboxes?
