@@ -1,6 +1,8 @@
 #lang racket/base
 
-(provide session-lifetime
+(provide current-session
+         current-email
+         session-lifetime
          (struct-out session)
          create-session!
          destroy-session!
@@ -9,11 +11,16 @@
 
 (require "randomness.rkt")
 
+(define current-session (make-parameter #f))
 (define session-lifetime (make-parameter (* 7 24 60 60 1000))) ;; one week in milliseconds
 
 (struct session (key expiry email password) #:transparent)
 
 (define sessions (make-hash))
+
+(define (current-email)
+  (define s (current-session))
+  (and s (session-email s)))
 
 (define (expire-sessions!)
   (define now (current-inexact-milliseconds))

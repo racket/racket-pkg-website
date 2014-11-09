@@ -4,18 +4,14 @@
 (require racket/match)
 (require racket/format)
 (require racket/date)
-(require racket/port)
 (require racket/string)
 (require net/uri-codec)
-(require json)
 (require web-server/servlet)
-(require web-server/http/id-cookie)
-(require web-server/http/cookie-parse)
-(require web-server/http/request-structs)
 (require "bootstrap.rkt")
 (require "html-utils.rkt")
 (require "packages.rkt")
 (require "sessions.rkt")
+(require "jsonp-client.rkt")
 
 (define nav-index "Package Index")
 (define nav-search "Search")
@@ -32,6 +28,8 @@
                         ;;       " Download")
                         ;;  "http://download.racket-lang.org/")
                         ))
+
+(jsonp-baseurl "https://pkgd.racket-lang.org")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -62,11 +60,6 @@
 
 (define-syntax-rule (authentication-wrap/require-login #:request request body ...)
   (authentication-wrap* #t request (lambda () body ...)))
-
-(define current-session (make-parameter #f))
-(define (current-email)
-  (define s (current-session))
-  (and s (session-email s)))
 
 (define clear-session-cookie (make-cookie COOKIE
                                           ""
@@ -144,51 +137,6 @@
                                (list))))
              (body)))))))
 
-(define (jsonp-rpc! #:sensitive? [sensitive? #f]
-                    #:include-credentials? [include-credentials? #t]
-                    site-relative-url
-                    original-parameters)
-  (define s (current-session))
-  (if sensitive?
-      (log-info "jsonp-rpc: sensitive request ~a" site-relative-url)
-      (log-info "jsonp-rpc: request ~a params ~a~a"
-                site-relative-url
-                original-parameters
-                (if include-credentials?
-                    (if s
-                        " +creds"
-                        " +creds(missing)")
-                    "")))
-  (define stamp (~a (inexact->exact (truncate (current-inexact-milliseconds)))))
-  (define callback-label (format "callback~a" stamp))
-  (define extraction-expr (format "^callback~a\\((.*)\\);$" stamp))
-  (let* ((parameters original-parameters)
-         (parameters (if (and include-credentials? s)
-                         (append (list (cons 'email (session-email s))
-                                       (cons 'passwd (session-password s)))
-                                 parameters)
-                         parameters))
-         (parameters (cons (cons 'callback callback-label) parameters)))
-    (define request-url
-      (string->url
-       (format "https://pkgd.racket-lang.org~a?~a"
-               site-relative-url
-               (alist->form-urlencoded parameters))))
-    (define-values (body-port response-headers) (get-pure-port/headers request-url))
-    (define raw-response (port->string body-port))
-    (match-define (pregexp extraction-expr (list _ json)) raw-response)
-    (define reply (string->jsexpr json))
-    (unless sensitive? (log-info "jsonp-rpc: reply ~a" reply))
-    reply))
-
-(define (authenticate-with-server! email password code)
-  (jsonp-rpc! #:sensitive? #t
-              #:include-credentials? #f
-              "/jsonp/authenticate"
-              (list (cons 'email email)
-                    (cons 'passwd password)
-                    (cons 'code code))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define ((generic-input type) name [initial-value ""] #:placeholder [placeholder #f])
@@ -261,6 +209,14 @@
                                           `(div ((class "alert alert-danger"))
                                             (p ,error-message))))
                            ,(form-group 4 5 (primary-button "Log in")))))))
+
+(define (authenticate-with-server! email password code)
+  (jsonp-rpc! #:sensitive? #t
+              #:include-credentials? #f
+              "/jsonp/authenticate"
+              (list (cons 'email email)
+                    (cons 'passwd password)
+                    (cons 'code code))))
 
 (define (process-login-credentials request)
   (define-form-bindings request (email password))
