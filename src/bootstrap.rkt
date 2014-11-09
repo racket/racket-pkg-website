@@ -13,15 +13,15 @@
 
          bootstrap-response
 	 bootstrap-redirect
-	 bootstrap-radio
-	 bootstrap-fieldset
-	 bootstrap-button
 
+         add-classes
          glyphicon)
 
 (require racket/match)
+(require racket/string)
 (require web-server/servlet)
 (require "html-utils.rkt")
+(require "xexpr-utils.rkt")
 
 (define bootstrap-project-name (make-parameter "Project"))
 (define bootstrap-project-link (make-parameter "/"))
@@ -33,6 +33,7 @@
 (define bootstrap-page-scripts (make-parameter '()))
 (define bootstrap-cookies (make-parameter '()))
 
+;; String [#:title-element XExpr] [#:code Integer] [#:message Bytes] [XExpr ...] -> Response
 (define (bootstrap-response title
 			    #:title-element [title-element `(h1 ,title)]
                             #:code [code 200]
@@ -80,6 +81,7 @@
       ,@(for/list ((script (bootstrap-page-scripts)))
           `(script ((type "text/javascript") (src ,script))))))))
 
+;; String [#:permanent? Boolean] [#:headers (Listof Header)] -> Response
 (define (bootstrap-redirect url
                             #:permanent? [permanent? #f]
                             #:headers [headers '()])
@@ -88,33 +90,22 @@
                #:headers (append (map cookie->header (bootstrap-cookies))
                                  headers)))
 
-;; String String XExpr ... -> XExpr
-;; Constructs Bootstrap boilerplate for a radio button.
-(define (bootstrap-radio #:checked [checked #f] field-name field-value . label-contents)
-  `(label ((class "radio"))
-	  (input ((type "radio")
-		  (name ,field-name)
-		  (value ,field-value)
-		  ,@(maybe-splice checked '(checked "checked"))))
-	  ,@label-contents))
-
-;; [#:legend (Option String)] [#:style Style] XExpr ... -> XExpr
-;; where Style is one of 'inline, 'horizontal, or 'normal.
-(define (bootstrap-fieldset #:legend [legend #f]
-			    #:style [style 'normal]
-			    . contents)
-  `(fieldset
-    ,@(maybe-splice legend `(legend ,legend))
-    ,@contents))
-
-;; [#:id (Option String)] [#:type (Option String)] XExpr ... -> XExpr
-(define (bootstrap-button #:id [id #f]
-			  #:type [type "submit"]
-			  . contents)
-  `(button ((class "btn")
-	    ,@(maybe-splice id `(id ,id))
-	    ,@(maybe-splice type `(type ,type)))
-	   ,@contents))
+;; (Listof (U Symbol String)) XExpr -> XExpr
+(define (add-classes classes x)
+  (define class-strs (map (lambda (c) (if (symbol? c) (symbol->string c) c)) classes))
+  (xexpr-case x
+              (lambda (content)
+                `(span ((class ,(string-join class-strs))) ,content))
+              (lambda (tag attrs kids)
+                (match (assq 'class attrs)
+                  [#f
+                   `(,tag ((class ,(string-join class-strs))
+                           ,@attrs)
+                     ,@kids)]
+                  [(and (list 'class existing-class) entry)
+                   `(,tag ((class ,(string-join (cons existing-class class-strs)))
+                           ,@(remove entry attrs))
+                     ,@kids)]))))
 
 ;; Symbol -> XExpr
 (define (glyphicon type)
