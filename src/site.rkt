@@ -53,7 +53,8 @@
    [("create") edit-package-page]
    [("logout") logout-page]
    [("json" "search-completions") json-search-completions]
-   [("json" "tag-completions") json-tag-completions]
+   [("json" "tag-search-completions") json-tag-search-completions]
+   [("json" "formal-tags") json-formal-tags]
    ))
 
 (define (on-continuation-expiry request)
@@ -787,6 +788,7 @@
         (bootstrap-response (if has-old-name?
                                 (format "Edit package ~a" old-name)
                                 "Create a new package")
+                            #:body-class "package-form"
                             (if error-message
                                 `(div ((class "alert alert-danger"))
                                   ,(glyphicon 'exclamation-sign) " " ,error-message)
@@ -1070,6 +1072,7 @@
                       [(pregexp #px"!(.*)" (list _ tag)) (list (string->symbol tag) #f)]
                       [tag (list (string->symbol tag) #t)])))
      (bootstrap-response "Search Package Index"
+                         #:body-class "search-page"
                          `(form ((class "form-horizontal")
                                  (role "form"))
                            ,(form-group 0 2 (label "q" "Search terms")
@@ -1098,7 +1101,12 @@
                    (lambda (response-port)
                      (write-json (set->list completions) response-port))))
 
-(define (json-tag-completions request)
+(define (json-tag-search-completions request)
   (response/output #:mime-type #"application/json"
                    (lambda (response-port)
                      (write-json (set->list (all-tags)) response-port))))
+
+(define (json-formal-tags request)
+  (response/output #:mime-type #"application/json"
+                   (lambda (response-port)
+                     (write-json (set->list (all-formal-tags)) response-port))))

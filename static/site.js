@@ -35,10 +35,13 @@ $(document).ready(function () {
   $("table.sortable").tablesorter();
 
   if ($("#tags").length) {
-    $.getJSON("/json/tag-completions", function (tagCompletions) {
-      tagCompletions.sort();
-      PkgSite.multiTermComplete(PkgSite.preventTabMovingDuringSelection($("#tags")),
-				tagCompletions);
-    });
+    $.getJSON((document.body.className === "package-form")
+	        ? "/json/formal-tags"
+	        : "/json/tag-search-completions",
+	      function (completions) {
+		completions.sort();
+		PkgSite.multiTermComplete(PkgSite.preventTabMovingDuringSelection($("#tags")),
+					  completions);
+	      });
   }
 });
