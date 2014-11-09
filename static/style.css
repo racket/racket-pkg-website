@@ -96,8 +96,8 @@ input#new_version {
 }
 
 /* Sortable tables */
-th.headerSortUp::after { content: " ▲"; }
-th.headerSortDown::after { content: " ▼"; }
+th.headerSortUp::after { content: " ▼"; }
+th.headerSortDown::after { content: " ▲"; }
 
 #register-button,
 #sign-in-button {
