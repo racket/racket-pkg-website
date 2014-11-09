@@ -89,10 +89,12 @@
            (parameterize ((bootstrap-navbar-extension
                            (cond
                             [(not session)
-                             `((a ((class "btn btn-default navbar-btn navbar-right")
+                             `((a ((id "register-button")
+                                   (class "btn btn-default navbar-btn navbar-right")
                                    (href ,(embed-url (lambda (req) (redo (list (register-page)))))))
                                   "Register")
-                               (a ((class "btn btn-success navbar-btn navbar-right")
+                               (a ((id "sign-in-button")
+                                   (class "btn btn-success navbar-btn navbar-right")
                                    (href ,(embed-url (lambda (req) (redo (list (login-page)))))))
                                   "Sign in"))]
                             [else
