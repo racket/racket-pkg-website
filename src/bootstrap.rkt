@@ -39,6 +39,7 @@
 			    #:title-element [title-element `(h1 ,title)]
                             #:code [code 200]
                             #:message [message #"Okay"]
+                            #:body-class [body-class #f]
 			    .
 			    body-contents)
   (response/xexpr
@@ -55,7 +56,7 @@
            (link ((rel "stylesheet") (href "/style.css") (type "text/css")))
 	   ,@(for/list ((sheet (bootstrap-page-stylesheets)))
 	       `(link ((rel "stylesheet") (href ,sheet) (type "text/css")))))
-     (body
+     (body ,@(maybe-splice body-class `((class ,body-class)))
       (nav ((class "navbar navbar-inverse navbar-fixed-top") (role "navigation"))
 	   (div ((class "container"))
 		(div ((class "navbar-header"))

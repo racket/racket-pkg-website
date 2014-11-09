@@ -52,6 +52,9 @@ ul.list-inline li { padding-right: 0; }
 ul.authors { list-style: none; padding: 0; }
 ul.authors a { color: black; }
 
+.authors-detail ul { margin: 0; }
+.authors-detail li { margin: 0 0 0.5em 0; }
+
 table.packages h2 { font-size: 160%; margin-top: 0; }
 
 ul.build-results,
@@ -59,7 +62,13 @@ ul.module-list {
     list-style: none; padding: 0;
 }
 
+#search-box {
+    margin: 2em;
+}
+
 .search-results { margin-top: 3em; }
+
+.main-page .package-count,
 .search-results .package-count {
     font-size: 100%;
     padding: 0.5em;
@@ -73,10 +82,10 @@ input#new_version {
 .confirm-package-deletion {
     background-color: red;
     padding: 2em;
+    width: 50%;
     display: block;
     margin-left: auto;
     margin-right: auto;
-    width: 50%;
     text-align: center;
     color: white;
     border: solid yellow 1em;
@@ -95,6 +104,10 @@ input#new_version {
     text-decoration: none;
 }
 
+.jumbotron #create-package-link {
+    text-decoration: none;
+}
+
 /* Sortable tables */
 th.headerSortUp::after { content: " ▼"; }
 th.headerSortDown::after { content: " ▲"; }
@@ -104,3 +117,25 @@ th.headerSortDown::after { content: " ▲"; }
     margin-left: 8px;
     margin-right: 0px;
 }
+
+.registration-step-container {
+    margin: 2em auto;
+    display: block;
+    width: 44em;
+}
+.registration-step-arrow {
+    font-size: 300%;
+}
+.registration-step {
+    display: inline-block;
+    background: #5CB85C; /* "success" colour */
+    padding: 1em;
+    margin: 2em;
+    width: 16em;
+    text-align: center;
+    color: white;
+    text-shadow: 1px 1px 3px #444;
+    border-radius: 10px;
+}
+.registration-step h1 { margin: 0.5em; }
+.registration-step p { font-size: 140%; }

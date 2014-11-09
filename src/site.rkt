@@ -10,6 +10,7 @@
 (require racket/string)
 (require net/uri-codec)
 (require web-server/servlet)
+(require "gravatar.rkt")
 (require "bootstrap.rkt")
 (require "html-utils.rkt")
 (require "packages.rkt")
@@ -121,6 +122,9 @@
                                    (li ((class "dropdown"))
                                        (a ((class "dropdown-toggle")
                                            (data-toggle "dropdown"))
+                                          (img ((src ,(gravatar-image-url (session-email session)
+                                                                          48))))
+                                          " "
                                           ,(session-email session)
                                           " "
                                           (span ((class "caret"))))
@@ -213,6 +217,9 @@
                             ,(form-group 4 5
                                          `(a ((href ,(embed-url (lambda (req) (register-page)))))
                                            "Need to reset your password?"))
+                            ,(form-group 4 5
+                                         `(a ((href ,(embed-url (lambda (req) (register-page)))))
+                                           "Register an account"))
                             ,@(maybe-splice
                                error-message
                                (form-group 4 5
@@ -249,27 +256,15 @@
     (lambda (embed-url)
       (bootstrap-response "Register/Reset Account"
                           #:title-element ""
-                          `(div
-                            (h1 "Got a registration or reset code?")
-                            (p "Great! Enter it below, with your chosen password, to log in.")
-                            (form ((class "form-horizontal")
-                                   (method "post")
-                                   (action ,(embed-url apply-account-code))
-                                   (role "form"))
-                                  ,(form-group 2 2 (label "email" "Email address")
-                                               0 5 (email-input "email" email))
-                                  ,(form-group 2 2 (label "code" "Code")
-                                               0 5 (text-input "code" code))
-                                  ,(form-group 2 2 (label "password" "Password")
-                                               0 5 (password-input "password"))
-                                  ,(form-group 2 2 (label "password" "Confirm password")
-                                               0 5 (password-input "confirm_password"))
-                                  ,@(maybe-splice
-                                     error-message
-                                     (form-group 4 5
-                                                 `(div ((class "alert alert-danger"))
-                                                   (p ,error-message))))
-                                  ,(form-group 4 5 (primary-button "Continue"))))
+                          `(div ((class "registration-step-container"))
+                            (div ((class "registration-step"))
+                                 (div (h1 "Step 1")
+                                      (p "Get a code")))
+                            (span ((class "registration-step-arrow")) "→")
+                            (div ((class "registration-step"))
+                                 (div (h1 "Step 2")
+                                      (p "Use the code"))))
+
                           `(div
                             (h1 "Need a code?")
                             (p "Enter your email address below, and we'll send you one.")
@@ -277,9 +272,31 @@
                                    (method "post")
                                    (action ,(embed-url notify-of-emailing))
                                    (role "form"))
-                                  ,(form-group 2 2 (label "email" "Email address")
+                                  ,(form-group 1 3 (label "email" "Email address")
                                                0 5 (email-input "email_for_code"))
-                                  ,(form-group 4 5 (primary-button "Email me a code")))))))))
+                                  ,(form-group 4 5 (primary-button "Email me a code"))))
+
+                          `(div
+                            (h1 "Got a registration or reset code?")
+                            (p "Great! Enter it below, with your chosen password, to log in.")
+                            (form ((class "form-horizontal")
+                                   (method "post")
+                                   (action ,(embed-url apply-account-code))
+                                   (role "form"))
+                                  ,(form-group 1 3 (label "email" "Email address")
+                                               0 5 (email-input "email" email))
+                                  ,(form-group 1 3 (label "code" "Code")
+                                               0 5 (text-input "code" code))
+                                  ,(form-group 1 3 (label "password" "Password")
+                                               0 5 (password-input "password"))
+                                  ,(form-group 1 3 (label "password" "Confirm password")
+                                               0 5 (password-input "confirm_password"))
+                                  ,@(maybe-splice
+                                     error-message
+                                     (form-group 4 5
+                                                 `(div ((class "alert alert-danger"))
+                                                   (p ,error-message))))
+                                  ,(form-group 4 5 (primary-button "Continue")))))))))
 
 (define (apply-account-code request)
   (define-form-bindings request (email code password confirm_password))
@@ -347,8 +364,12 @@
           (named-url search-page)
           (alist->form-urlencoded (list (cons 'tags (string-join tags))))))
 
-(define (author-link author-name)
-  `(a ((href ,(tags-page-url (list (format "author:~a" author-name))))) ,author-name))
+(define (author-link author-name #:gravatar? [gravatar? #f])
+  `(a ((href ,(tags-page-url (list (format "author:~a" author-name)))))
+    ,@(maybe-splice gravatar?
+                    `(img ((src ,(gravatar-image-url author-name 48))))
+                    " ")
+    ,author-name))
 
 (define (tag-link tag-name)
   `(a ((href ,(tags-page-url (list tag-name)))) ,tag-name))
@@ -357,8 +378,9 @@
   `(a (,@attributes
        (href ,(format "http://pkg-build.racket-lang.org/~a" url-suffix))) ,label))
 
-(define (authors-list authors)
-  `(ul ((class "authors")) ,@(for/list ((author authors)) `(li ,(author-link author)))))
+(define (authors-list authors #:gravatars? [gravatars? #f])
+  `(ul ((class "authors")) ,@(for/list ((author authors))
+                               `(li ,(author-link author #:gravatar? gravatars?)))))
 
 (define (package-links #:pretty? [pretty? #t] package-names)
   (if (and pretty? (null? (or package-names '())))
@@ -434,26 +456,37 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (main-page request)
-  (parameterize ((bootstrap-active-navigation nav-index))
+  (parameterize ((bootstrap-active-navigation nav-index)
+                 (bootstrap-page-scripts '("/mainpage.js")))
     (define package-name-list (package-search "" '((main-distribution #f))))
     (authentication-wrap
      #:request request
      (bootstrap-response "Racket Package Index"
                          #:title-element ""
+                         #:body-class "main-page"
                          `(div ((class "jumbotron"))
-                           (h1 "Racket Package Index")
-                           (p "These are the packages available via the "
+                           (h1 "Racket Packages")
+                           (p "These are the packages in the "
                               (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
                                  "Racket package system") ".")
-                           (p "Simply run " (kbd "raco pkg install " (var "package-name"))
-                              " to install a package.")
-                           (p ((class "text-center"))
-                              (span ((class "package-count")) ,(~a (length package-name-list)))
-                              " packages in the index.")
+                           (p (a ((href "http://docs.racket-lang.org/pkg/cmdline.html"))
+                                 (kbd "raco pkg install " (var "package-name")))
+                              " installs a package.")
+                           (p "You can "
+                              (a ((id "create-package-link")
+                                  (href ,(named-url edit-package-page)))
+                                 (span ((class "label label-success"))
+                                       ,(glyphicon 'plus-sign)
+                                       " add your own"))
+                              " packages to the index."))
+                         `(div ((id "search-box"))
                            (form ((role "form")
                                   (action ,(named-url search-page)))
                                  ,(text-input "q" #:placeholder "Search packages")))
-                         (package-summary-table package-name-list)))))
+                         `(div
+                           (p ((class "package-count"))
+                              ,(format "~a packages" (length package-name-list)))
+                           ,(package-summary-table package-name-list))))))
 
 (define (logout-page request)
   (with-site-config
@@ -563,7 +596,8 @@
 
                            `(table ((class "package-details"))
                              (tr (th "Authors")
-                                 (td ,(authors-list (@ pkg authors))))
+                                 (td (div ((class "authors-detail"))
+                                          ,(authors-list #:gravatars? #t (@ pkg authors)))))
                              (tr (th "Documentation")
                                  (td ,(doc-links (@ pkg build docs))))
                              (tr (th "Tags")
@@ -748,8 +782,8 @@
         (define old-name (draft-package-old-name draft))
         (define has-old-name? (not (equal? old-name "")))
         (bootstrap-response (if has-old-name?
-                                (format "Editing package ~a" old-name)
-                                "Creating a new package")
+                                (format "Edit package ~a" old-name)
+                                "Create a new package")
                             (if error-message
                                 `(div ((class "alert alert-danger"))
                                   ,(glyphicon 'exclamation-sign) " " ,error-message)
@@ -1032,7 +1066,7 @@
                     (match t
                       [(pregexp #px"!(.*)" (list _ tag)) (list (string->symbol tag) #f)]
                       [tag (list (string->symbol tag) #t)])))
-     (bootstrap-response "Search Racket Package Index"
+     (bootstrap-response "Search Package Index"
                          `(form ((class "form-horizontal")
                                  (role "form"))
                            ,(form-group 0 2 (label "q" "Search terms")
