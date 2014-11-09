@@ -11,6 +11,7 @@
 (require web-server/servlet)
 (require web-server/http/id-cookie)
 (require web-server/http/cookie-parse)
+(require web-server/http/request-structs)
 (require "bootstrap.rkt")
 (require "html-utils.rkt")
 (require "packages.rkt")
@@ -82,20 +83,36 @@
   (let redo ((session-keys original-session-keys))
     (define session (for/or ((k session-keys)) (lookup-session/touch! k)))
     ;; (log-info "session: ~a" session)
+
+    ;; If needed in future, we can change this to preserve *all* of
+    ;; the original request by simply calling redo with the new
+    ;; session key, (redo (list new-session-key)).
+    ;;
+    ;; For now, we need to redirect to a clean URL in every case, so
+    ;; just do that.
+    (define (after-login new-session-key)
+      (parameterize ((bootstrap-cookies
+                      (if new-session-key
+                          (list (make-cookie COOKIE new-session-key #:path "/" #:secure? #t))
+                          (list clear-session-cookie))))
+        (bootstrap-redirect (url->string (request-uri request)))))
+
     (send/suspend/dispatch
      (lambda (embed-url)
        (if (and require-login? (not session))
-           (redo (list (login-page)))
+           (after-login (login-page))
            (parameterize ((bootstrap-navbar-extension
                            (cond
                             [(not session)
                              `((a ((id "register-button")
                                    (class "btn btn-default navbar-btn navbar-right")
-                                   (href ,(embed-url (lambda (req) (redo (list (register-page)))))))
+                                   (href ,(embed-url
+                                           (lambda (req) (after-login (register-page))))))
                                   "Register")
                                (a ((id "sign-in-button")
                                    (class "btn btn-success navbar-btn navbar-right")
-                                   (href ,(embed-url (lambda (req) (redo (list (login-page)))))))
+                                   (href ,(embed-url
+                                           (lambda (req) (after-login (login-page))))))
                                   "Sign in"))]
                             [else
                              `((ul ((class "nav navbar-nav navbar-right"))
@@ -114,7 +131,8 @@
                                                                     (session-email session))))))
                                                   ,(glyphicon 'user) " My packages"))
                                            (li ((class "divider"))
-                                               (li (a ((href ,(named-url logout-page)))
+                                               (li (a ((href ,(embed-url
+                                                               (lambda (req) (after-login #f)))))
                                                       ,(glyphicon 'log-out) " Log out")))))))]))
                           (current-session session)
                           (bootstrap-cookies
