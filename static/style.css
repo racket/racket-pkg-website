@@ -59,7 +59,12 @@ ul.module-list {
     list-style: none; padding: 0;
 }
 
-.search-results table { margin-top: 3em; }
+.search-results { margin-top: 3em; }
+.search-results .package-count {
+    font-size: 100%;
+    padding: 0.5em;
+    background: #eee;
+}
 
 input#new_version {
     width: 6em;

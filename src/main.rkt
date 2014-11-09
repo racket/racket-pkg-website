@@ -1126,4 +1126,7 @@
                            (div ((class "search-results"))
                                 ,@(maybe-splice
                                    (or (pair? tags) (not (equal? search-text "")))
-                                   (package-summary-table (package-search search-text tags)))))))))
+                                   (let ((package-name-list (package-search search-text tags)))
+                                     `(div
+                                       (p ((class "package-count")) ,(format "~a packages found" (length package-name-list)))
+                                       ,(package-summary-table package-name-list))))))))))
