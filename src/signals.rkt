@@ -29,5 +29,8 @@
        (poll-signal "../signals/.reload"
                     "Reload signal received - attempting to reload code"
                     (lambda () (reload!)))
+       (poll-signal "../signals/.fetchindex"
+                    "Index refresh signal received"
+                    (lambda () ((entry-point-value (lookup-entry-point 'refresh-packages!)))))
        (sleep 0.5)
        (loop)))))
