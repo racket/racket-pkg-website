@@ -14,7 +14,7 @@
 (require (only-in web-server/private/util exn->string))
 
 (define reload-poll-interval 0.5) ;; seconds
-(define reload-failure-retry-delay (make-parameter 10)) ;; seconds
+(define reload-failure-retry-delay (make-parameter 5)) ;; seconds
 
 (struct entry-point (name module-path identifier-symbol [value #:mutable]) #:prefab)
 

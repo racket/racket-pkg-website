@@ -46,7 +46,6 @@
   (hash-remove! (sessions) session-key))
 
 (define (lookup-session/touch! session-key)
-  (log-info "Looking up session ~a" session-key)
   (define s (hash-ref (sessions) session-key (lambda () #f)))
   (and s
        (let ((s1 (struct-copy session s [expiry (+ (current-inexact-milliseconds)

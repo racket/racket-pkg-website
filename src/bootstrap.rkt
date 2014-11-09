@@ -53,6 +53,7 @@
 	   (meta ((name "viewport") (content "width=device-width, initial-scale=1")))
 	   (title ,title)
 	   (link ((rel "stylesheet") (href "/bootstrap/css/bootstrap.min.css") (type "text/css")))
+	   (link ((rel "stylesheet") (href "/jquery-ui.min.css") (type "text/css")))
            (link ((rel "stylesheet") (href "/style.css") (type "text/css")))
 	   ,@(for/list ((sheet (bootstrap-page-stylesheets)))
 	       `(link ((rel "stylesheet") (href ,sheet) (type "text/css")))))
@@ -78,6 +79,7 @@
 
       (script ((type "text/javascript") (src "/jquery.min.js")))
       (script ((type "text/javascript") (src "/jquery.tablesorter.min.js")))
+      (script ((type "text/javascript") (src "/jquery-ui.min.js")))
       (script ((type "text/javascript") (src "/bootstrap/js/bootstrap.min.js")))
       (script ((type "text/javascript") (src "/site.js")))
       ,@(for/list ((script (bootstrap-page-scripts)))

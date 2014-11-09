@@ -10,6 +10,7 @@
 (require racket/string)
 (require net/uri-codec)
 (require web-server/servlet)
+(require json)
 (require "gravatar.rkt")
 (require "bootstrap.rkt")
 (require "html-utils.rkt")
@@ -51,6 +52,8 @@
    [("package" (string-arg) "edit") edit-package-page]
    [("create") edit-package-page]
    [("logout") logout-page]
+   [("json" "search-completions") json-search-completions]
+   [("json" "all-tags") json-all-tags]
    ))
 
 (define (on-continuation-expiry request)
@@ -457,7 +460,7 @@
 
 (define (main-page request)
   (parameterize ((bootstrap-active-navigation nav-index)
-                 (bootstrap-page-scripts '("/mainpage.js")))
+                 (bootstrap-page-scripts '("/searchbox.js")))
     (define package-name-list (package-search "" '((main-distribution #f))))
     (authentication-wrap
      #:request request
@@ -1057,7 +1060,7 @@
 
 (define (search-page request)
   (parameterize ((bootstrap-active-navigation nav-search)
-                 (bootstrap-page-scripts '("/searchpage.js")))
+                 (bootstrap-page-scripts '("/searchbox.js")))
     (authentication-wrap
      #:request request
      (define-form-bindings request ([search-text q ""]
@@ -1086,3 +1089,16 @@
                                        (p ((class "package-count"))
                                           ,(format "~a packages found" (length package-name-list)))
                                        ,(package-summary-table package-name-list))))))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (json-search-completions request)
+  (define completions (set-union (list->set (map ~a (all-package-names))) (all-tags)))
+  (response/output #:mime-type #"application/json"
+                   (lambda (response-port)
+                     (write-json (set->list completions) response-port))))
+
+(define (json-all-tags request)
+  (response/output #:mime-type #"application/json"
+                   (lambda (response-port)
+                     (write-json (set->list (all-tags)) response-port))))
