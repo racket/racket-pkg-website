@@ -22,7 +22,7 @@
 (bootstrap-navbar-header
  `(a ((href "http://www.racket-lang.org/"))
    (img ((src "/logo-and-text.png")
-         (height "50")
+         (height "60")
          (alt "Racket Package Index")))))
 
 (bootstrap-navigation `((,nav-index "/")

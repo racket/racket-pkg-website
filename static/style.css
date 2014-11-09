@@ -13,6 +13,20 @@ body {
 
 .navbar { background: black; }
 
+/*---------------------------------------------------------------------------*/
+/* Make the navbar the same height as the main racket page's navbar */
+.navbar-brand,
+.navbar-nav > li > a {
+    line-height: 60px;
+    height: 60px;
+    padding-top: 0;
+}
+.navbar-btn {
+    margin-top: 13px;
+    margin-bottom: 13px;
+}
+/*---------------------------------------------------------------------------*/
+
 .build_green { background-color: #ccffcc; }
 .build_yellow { background-color: #ffffcc; }
 .build_red { background-color: #ffcccc; }

@@ -22,5 +22,3 @@ the build status "problems" button should be a link to the build status
 ## Design possibilities
 
 "the big gray box should probably not go all the way to the top of the page"
-
-Make the header bar the same size as the main racket page
