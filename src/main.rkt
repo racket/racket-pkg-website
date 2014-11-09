@@ -1090,7 +1090,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (search-page request)
-  (parameterize ((bootstrap-active-navigation nav-search))
+  (parameterize ((bootstrap-active-navigation nav-search)
+                 (bootstrap-page-scripts '("/searchpage.js")))
     (authentication-wrap
      #:request request
      (define-form-bindings request ([search-text q ""]
