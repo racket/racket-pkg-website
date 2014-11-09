@@ -17,7 +17,14 @@ you should check the existence of repos/github repos/urls/etc via XHR
 
 you should say how many packages there are in response to a search
 
+change from "snapshot" to "zip file", depending. ("download" i guess if it's not a zip)
+
+don't let people enter blank version numbers
+
+Much more input validation is needed
 
 ## Design possibilities
 
 "the big gray box should probably not go all the way to the top of the page"
+
+The spacing between "sign in" and "register" looks odd
