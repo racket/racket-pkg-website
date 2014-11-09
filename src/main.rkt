@@ -27,7 +27,7 @@
 
 (bootstrap-navigation `((,nav-index "/")
                         (,nav-search "/search")
-                        ;; ((div (span ((class "glyphicon glyphicon-download-alt")))
+                        ;; ((div ,(glyphicon 'download-alt)
                         ;;       " Download")
                         ;;  "http://download.racket-lang.org/")
                         ))
@@ -107,18 +107,15 @@
                                           (span ((class "caret"))))
                                        (ul ((class "dropdown-menu") (role "menu"))
                                            (li (a ((href ,(named-url edit-package-page)))
-                                                  (span ((class "glyphicon glyphicon-plus-sign")))
-                                                  " New package"))
+                                                  ,(glyphicon 'plus-sign) " New package"))
                                            (li (a ((href ,(tags-page-url
                                                            (list
                                                             (format "author:~a"
                                                                     (session-email session))))))
-                                                  (span ((class "glyphicon glyphicon-user")))
-                                                  " My packages"))
+                                                  ,(glyphicon 'user) " My packages"))
                                            (li ((class "divider"))
                                                (li (a ((href ,(named-url logout-page)))
-                                                      (span ((class "glyphicon glyphicon-log-out")))
-                                                      " Log out")))))))]))
+                                                      ,(glyphicon 'log-out) " Log out")))))))]))
                           (current-session session)
                           (bootstrap-cookies
                            (if session
@@ -499,13 +496,12 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (build-status buildhost-url str label-type glyphicon)
+(define (build-status buildhost-url str label-type glyphicon-type)
   `(p ((class "build-status"))
     "Build status: "
     ,(buildhost-link buildhost-url
                      `(span ((class ,(format "label label-~a" label-type)))
-                       (span ((class ,(format "glyphicon glyphicon-~a" glyphicon))))
-                       " " ,str))))
+                       ,(glyphicon glyphicon-type) " " ,str))))
 
 (define (package-page request package-name-str)
   (authentication-wrap
@@ -563,30 +559,27 @@
                                                (@ default-version source_url))
                                        `(a ((class "btn btn-default btn-lg")
                                             (href ,(@ default-version source_url)))
-                                         (span ((class "glyphicon glyphicon-download")))
-                                         " Download"
+                                         ,(glyphicon 'download) " Download"
                                          ;; ,(if (regexp-match? "(?i:\\.zip$)" (or (@ default-version source_url) ""))
                                          ;;      " Zip file"
                                          ;;      " Download")
                                          )
                                        `(a ((class "btn btn-default btn-lg")
                                             (href ,(@ default-version source_url)))
-                                         (span ((class "glyphicon glyphicon-link")))
-                                         " Code"))
+                                         ,(glyphicon 'link) " Code"))
 
                                   ,@(maybe-splice
                                      (member (current-email) (or (@ pkg authors) '()))
                                      " "
                                      `(a ((class "btn btn-info btn-lg")
                                           (href ,(named-url edit-package-page package-name-str)))
-                                       (span ((class "glyphicon glyphicon-edit")))
-                                       " Edit this package"))
+                                       ,(glyphicon 'edit) " Edit this package"))
                                   ))
 
                            (if (@ pkg _LOCALLY_MODIFIED_)
                                `(div ((class "alert alert-warning")
                                       (role "alert"))
-                                 (span ((class "glyphicon glyphicon-exclamation-sign")))
+                                 ,(glyphicon 'exclamation-sign)
                                  " This package has been modified since the package index was last rebuilt."
                                  " The next index refresh is scheduled for "
                                  ,(utc->string (/ (next-fetch-deadline) 1000)) ".")
@@ -754,7 +747,7 @@
                                 (type "submit")
                                 (name "action")
                                 (value ,(control-name "delete")))
-                        (span ((class "glyphicon glyphicon-trash"))))))
+                        ,(glyphicon 'trash))))
                (td (div ((class "row"))
                         (div ((class "col-sm-3"))
                              (div ((id ,(group-name "type")))
@@ -799,8 +792,7 @@
                                (type "submit")
                                (name "action")
                                (value "add_version"))
-                              (span ((class "glyphicon glyphicon-plus-sign")))
-                              " Add new version"))))
+                              ,(glyphicon 'plus-sign) " Add new version"))))
          ))
 
      (parameterize ((bootstrap-page-scripts '("/editpackage.js")))
@@ -811,8 +803,7 @@
                                "Creating a new package")
                            (if error-message
                                `(div ((class "alert alert-danger"))
-                                 (span ((class "glyphicon glyphicon-exclamation-sign")))
-                                 " " ,error-message)
+                                 ,(glyphicon 'exclamation-sign) " " ,error-message)
                                "")
                            `(form ((id "edit-package-form")
                                    (method "post")
@@ -869,15 +860,13 @@
                                                `(a ((class "btn btn-danger pull-right")
                                                     (href ,(embed-url
                                                             (confirm-package-deletion old-name))))
-                                                 (span ((class "glyphicon glyphicon-trash")))
-                                                 " Delete package")
+                                                 ,(glyphicon 'trash) " Delete package")
                                                " ")
                                             (button ((type "submit")
                                                      (class "btn btn-primary")
                                                      (name "action")
                                                      (value "save_changes"))
-                                                    (span ((class "glyphicon glyphicon-save")))
-                                                    " Save changes")
+                                                    ,(glyphicon 'save) " Save changes")
                                             ,@(maybe-splice
                                                has-old-name?
                                                " "
@@ -1135,8 +1124,7 @@
                                 (div ((class "col-sm-offset-2 col-sm-10"))
                                      (button ((type "submit")
                                               (class "btn btn-primary"))
-                                             (span ((class "glyphicon glyphicon-search")))
-                                             " Search")))
+                                             ,(glyphicon 'search) " Search")))
                            (div ((class "search-results"))
                                 ,@(maybe-splice
                                    (or (pair? tags) (not (equal? search-text "")))

@@ -15,7 +15,9 @@
 	 bootstrap-redirect
 	 bootstrap-radio
 	 bootstrap-fieldset
-	 bootstrap-button)
+	 bootstrap-button
+
+         glyphicon)
 
 (require racket/match)
 (require web-server/servlet)
@@ -113,3 +115,7 @@
 	    ,@(maybe-splice id `(id ,id))
 	    ,@(maybe-splice type `(type ,type)))
 	   ,@contents))
+
+;; Symbol -> XExpr
+(define (glyphicon type)
+  `(span ((class ,(format "glyphicon glyphicon-~a" type)))))
