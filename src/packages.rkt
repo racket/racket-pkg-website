@@ -99,7 +99,13 @@
          [(not local-pkg) remote-pkg]
          [(and (eq? local-pkg 'tombstone) (not remote-pkg)) #f]
          [(eq? local-pkg 'tombstone) 'tombstone]
-         [(> (or (@ remote-pkg last-edit) 0) (or (@ local-pkg last-edit) 0)) remote-pkg]
+         [(or (not (@ local-pkg _LOCALLY_MODIFIED_))
+              ;; If it's locally modified, only take the remote site
+              ;; when its edit-time is newer than the current one
+              ;; (which is the unmodified timestamp of the version
+              ;; upon which the local edits are based)
+              (> (or (@ remote-pkg last-edit) 0) (or (@ local-pkg last-edit) 0)))
+          remote-pkg]
          [else local-pkg]))
       (if new-local-pkg
           (hash-set acc package-name new-local-pkg)
