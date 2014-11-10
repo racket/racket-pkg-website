@@ -422,7 +422,8 @@
      ,@(for/list ((package-name package-names))
          (define pkg (package-detail package-name))
          `(tr
-           (td (span ((class "last-updated-negated") (style "display: none")) ,(~a (- (@ pkg last-updated))))
+           (td (span ((class "last-updated-negated") (style "display: none"))
+                     ,(~a (- (@ pkg last-updated))))
                ,@(maybe-splice
                   (< (- now (or (@ pkg last-updated) 0)) recent-seconds)
                   `(span ((class "label label-info")) "New")))

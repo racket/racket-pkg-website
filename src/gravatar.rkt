@@ -12,7 +12,9 @@
     (string-downcase
      (string-trim email)))))
 
-(define (gravatar-image-url email [size 80] #:extension [extension ""] #:default [default "identicon"])
+(define (gravatar-image-url email [size 80]
+                            #:extension [extension ""]
+                            #:default [default "identicon"])
   (format "https://www.gravatar.com/avatar/~a~a?s=~a&d=~a"
           (gravatar-hash email)
           extension
