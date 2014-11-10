@@ -11,7 +11,8 @@
          replace-package!
          delete-package!
          refresh-packages!
-         next-fetch-deadline)
+         next-fetch-deadline
+         packages-jsexpr)
 
 (require json)
 (require racket/set)
@@ -243,3 +244,6 @@
                          #:when (and (not (tombstone? pkg))
                                      ((if include? values not) (@ref (@ pkg search-terms) tag-name))))
                 (values package-name pkg)))))))
+
+(define (packages-jsexpr)
+  (manager-rpc 'packages))

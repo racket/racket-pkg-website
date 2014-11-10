@@ -55,6 +55,7 @@
    [("json" "search-completions") json-search-completions]
    [("json" "tag-search-completions") json-tag-search-completions]
    [("json" "formal-tags") json-formal-tags]
+   [("pkgs-all.json") pkgs-all-json]
    ))
 
 (define (on-continuation-expiry request)
@@ -1111,3 +1112,8 @@
   (response/output #:mime-type #"application/json"
                    (lambda (response-port)
                      (write-json (set->list (all-formal-tags)) response-port))))
+
+(define (pkgs-all-json request)
+  (response/output #:mime-type #"application/json"
+                   (lambda (response-port)
+                     (write-json (packages-jsexpr) response-port))))
