@@ -470,9 +470,9 @@
                          #:body-class "main-page"
                          `(div ((class "jumbotron"))
                            (h1 "Racket Packages")
-                           (p "These are the packages in the "
+                           (p "These are the packages in the official "
                               (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
-                                 "Racket package system") ".")
+                                 "package catalog") ".")
                            (p (a ((href "http://docs.racket-lang.org/pkg/cmdline.html"))
                                  (kbd "raco pkg install " (var "package-name")))
                               " installs a package.")
