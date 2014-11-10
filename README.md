@@ -10,6 +10,22 @@ Running `src/main.rkt` starts a local server. For your convenience,
 
 compiles the code and starts the server.
 
+### Automatic code reloading
+
+If you would like to enable the automatic code-reloading feature, set
+the environment variable `SITE_RELOADABLE` to a non-empty string. (A
+good place to do that is in a `run-prelude` script; see below.)
+
+You must also delete any compiled code `.zo` files. Otherwise, the
+system will not be able to correctly replace modules while running.
+
+Therefore, when using automatic code reloading, use just
+
+    make run
+
+and make sure to run `make clean` beforehand, if you've run `make
+compile` at all previously.
+
 ## Deployment
 
 ### Supervision
