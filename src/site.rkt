@@ -464,15 +464,14 @@
                      `(tr (td ((colspan "4"))
                               (div ((class "alert alert-info"))
                                    "No packages found."))))
-     ,@(for/list ((package-name package-names))
-         (define pkg (package-detail package-name))
+     ,@(for/list ((pkg (package-batch-detail package-names)))
          `(tr
            (td (span ((class "last-updated-negated") (style "display: none"))
                      ,(~a (- (@ pkg last-updated))))
                ,@(maybe-splice
                   (< (- now (or (@ pkg last-updated) 0)) recent-seconds)
                   `(span ((class "label label-info")) "New")))
-           (td (h2 ,(package-link package-name))
+           (td (h2 ,(package-link (@ pkg name)))
                ,(authors-list (@ pkg authors)))
            (td (p ,(@ pkg description))
                ,@(maybe-splice

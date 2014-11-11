@@ -7,6 +7,7 @@
          all-formal-tags
          sorted-package-names
          package-detail
+         package-batch-detail
          package-search
          replace-package!
          delete-package!
@@ -150,6 +151,10 @@
                    [local-packages (hash-set local-packages package-name 'tombstone)])
       state))
 
+(define (lookup-package name local-packages)
+  (define pkg (hash-ref local-packages name #f))
+  (if (tombstone? pkg) #f pkg))
+
 (define (package-manager-main state)
   (match-define (package-manager-state local-packages
                                        all-tags
@@ -190,8 +195,9 @@
          [(list 'all-formal-tags)
           (values all-formal-tags state)]
          [(list 'package-detail name)
-          (define pkg (hash-ref local-packages name (lambda () #f)))
-          (values (if (tombstone? pkg) #f pkg) state)]
+          (values (lookup-package name local-packages) state)]
+         [(list 'package-batch-detail names)
+          (values (for/list ((name names)) (lookup-package name local-packages)) state)]
          [(list 'replace-package! completion-ch old-pkg new-pkg)
           (values (void) (replace-package completion-ch old-pkg new-pkg state))]
          [(list 'delete-package! completion-ch package-name)
@@ -225,6 +231,7 @@
 (define (all-tags) (manager-rpc 'all-tags))
 (define (all-formal-tags) (manager-rpc 'all-formal-tags))
 (define (package-detail package-name) (manager-rpc 'package-detail package-name))
+(define (package-batch-detail package-names) (manager-rpc 'package-batch-detail package-names))
 (define (replace-package! completion-ch old-pkg new-pkg)
   (manager-rpc 'replace-package! completion-ch old-pkg new-pkg))
 (define (delete-package! completion-ch package-name)
