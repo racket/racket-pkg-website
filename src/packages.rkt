@@ -12,6 +12,7 @@
          delete-package!
          refresh-packages!
          next-fetch-deadline
+         package-change-handler-thread
          packages-jsexpr)
 
 (require json)
@@ -102,6 +103,10 @@
               (> (or (@ remote-pkg last-edit) 0) (or (@ local-pkg last-edit) 0)))
           remote-pkg]
          [else local-pkg]))
+      (when (not (equal? new-local-pkg local-pkg))
+        ;; Run in a separate thread to avoid deadlock, since the
+        ;; renderer will undoubtably need to call the package manager.
+        (notify-package-change! #f package-name))
       (if new-local-pkg
           (hash-set acc package-name new-local-pkg)
           acc)))
@@ -121,19 +126,25 @@
                           ((pkg (in-hash-values (package-manager-state-local-packages state))))
                   (set-union ts (list->set (or (@ pkg tags) '()))))]))
 
-(define (replace-package old-pkg new-pkg state)
+(define (replace-package completion-ch old-pkg new-pkg state)
   (define local-packages (package-manager-state-local-packages state))
+  (define old-package-name (string->symbol (@ old-pkg name)))
+  (define new-package-name (string->symbol (@ (or new-pkg old-pkg) name)))
+  (when (not (eq? old-package-name new-package-name))
+    (notify-package-change! #f old-package-name))
+  (notify-package-change! completion-ch new-package-name)
   (rebuild-all-tags
    (struct-copy package-manager-state state
                 [local-packages
                  (hash-set (if old-pkg
-                               (hash-remove local-packages (string->symbol (@ old-pkg name)))
+                               (hash-remove local-packages old-package-name)
                                local-packages)
-                           (string->symbol (@ (or new-pkg old-pkg) name))
+                           new-package-name
                            (or new-pkg 'tombstone))])))
 
-(define (delete-package package-name state)
+(define (delete-package completion-ch package-name state)
   (define local-packages (package-manager-state-local-packages state))
+  (notify-package-change! completion-ch package-name)
   (if (hash-has-key? local-packages package-name)
       (struct-copy package-manager-state state
                    [local-packages (hash-set local-packages package-name 'tombstone)])
@@ -181,16 +192,29 @@
          [(list 'package-detail name)
           (define pkg (hash-ref local-packages name (lambda () #f)))
           (values (if (tombstone? pkg) #f pkg) state)]
-         [(list 'replace-package! old-pkg new-pkg)
-          (values (void) (replace-package old-pkg new-pkg state))]
-         [(list 'delete-package! package-name)
-          (values (void) (delete-package package-name state))]))
+         [(list 'replace-package! completion-ch old-pkg new-pkg)
+          (values (void) (replace-package completion-ch old-pkg new-pkg state))]
+         [(list 'delete-package! completion-ch package-name)
+          (values (void) (delete-package completion-ch package-name state))]))
      (when ch (channel-put ch reply))
      (package-manager-main new-state)]))
 
 (define package-manager-thread
   (make-persistent-state 'package-manager-thread
                          (lambda () (daemon-thread 'package-manager package-manager))))
+
+;; Set to a thread in site.rkt (because the thread needs to call
+;; routines only available from site.rkt)
+(define package-change-handler-thread
+  (make-persistent-state 'package-change-handler-thread
+                         (lambda () #f)))
+
+(define (notify-package-change! completion-ch package-name)
+  (let retry ()
+    (if (not (package-change-handler-thread))
+        (begin (sleep 0.5)
+               (retry))
+        (thread-send (package-change-handler-thread) (list completion-ch package-name)))))
 
 (define (manager-rpc . request)
   (define ch (make-channel))
@@ -201,8 +225,10 @@
 (define (all-tags) (manager-rpc 'all-tags))
 (define (all-formal-tags) (manager-rpc 'all-formal-tags))
 (define (package-detail package-name) (manager-rpc 'package-detail package-name))
-(define (replace-package! old-pkg new-pkg) (manager-rpc 'replace-package! old-pkg new-pkg))
-(define (delete-package! package-name) (manager-rpc 'delete-package! package-name))
+(define (replace-package! completion-ch old-pkg new-pkg)
+  (manager-rpc 'replace-package! completion-ch old-pkg new-pkg))
+(define (delete-package! completion-ch package-name)
+  (manager-rpc 'delete-package! completion-ch package-name))
 (define (refresh-packages!) (manager-rpc 'refresh-packages!))
 (define (next-fetch-deadline) (manager-rpc 'next-fetch-deadline))
 

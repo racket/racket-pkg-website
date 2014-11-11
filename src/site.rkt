@@ -17,6 +17,8 @@
 (require "packages.rkt")
 (require "sessions.rkt")
 (require "jsonp-client.rkt")
+(require "reload.rkt")
+(require "daemon.rkt")
 
 (define nav-index "Package Index")
 (define nav-search "Search")
@@ -861,7 +863,9 @@
                                 (href ,k-url))
                                "Confirm deletion")))))
    (jsonp-rpc! "/jsonp/package/del" `((pkg . ,package-name-str)))
-   (delete-package! (string->symbol package-name-str))
+   (define completion-ch (make-channel))
+   (delete-package! completion-ch (string->symbol package-name-str))
+   (channel-get completion-ch)
    (bootstrap-redirect (named-url main-page))))
 
 (define ((update-draft draft0) request)
@@ -990,8 +994,10 @@
               (new-pkg (hash-set new-pkg 'versions (friendly-versions versions/default)))
               (new-pkg (hash-set new-pkg 'source source))
               (new-pkg (hash-set new-pkg 'search-terms (compute-search-terms new-pkg)))
-              (new-pkg (hash-set new-pkg '_LOCALLY_MODIFIED_ #t)))
-         (replace-package! old-pkg new-pkg)
+              (new-pkg (hash-set new-pkg '_LOCALLY_MODIFIED_ #t))
+              (completion-ch (make-channel)))
+         (replace-package! completion-ch old-pkg new-pkg)
+         (channel-get completion-ch)
          #t)))
 
 ;; Based on (and copied from) the analogous code in meta/pkg-index/official/static.rkt
@@ -1117,3 +1123,31 @@
   (response/output #:mime-type #"application/json"
                    (lambda (response-port)
                      (write-json (packages-jsexpr) response-port))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (rerender-indexes!)
+  (log-info "Rerendering indexes"))
+
+(define (rerender-package! package-name)
+  (log-info "Rerendering package ~a" package-name))
+
+(define (package-change-handler)
+  (let loop ((index-rerender-needed? #f)
+             (pending-completions '()))
+    (sync/timeout (and index-rerender-needed?
+                       (lambda ()
+                         (rerender-indexes!)
+                         (for ((completion-ch pending-completions))
+                           (channel-put completion-ch (void)))
+                         (loop #f '())))
+                  (handle-evt (thread-receive-evt)
+                              (lambda (_)
+                                (match (thread-receive)
+                                  [(list completion-ch package-name)
+                                   (rerender-package! package-name)
+                                   (loop #t (if completion-ch
+                                                (cons completion-ch pending-completions)
+                                                pending-completions))]))))))
+
+(package-change-handler-thread (daemon-thread 'package-change-handler package-change-handler))
