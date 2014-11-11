@@ -32,5 +32,8 @@
        (poll-signal "../signals/.fetchindex"
                     "Index refresh signal received"
                     (lambda () ((entry-point-value (lookup-entry-point 'refresh-packages!)))))
+       (poll-signal "../signals/.rerender"
+                    "Static rerender request received"
+                    (lambda () ((entry-point-value (lookup-entry-point 'rerender-all!)))))
        (sleep 0.5)
        (loop)))))

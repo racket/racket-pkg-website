@@ -1,7 +1,8 @@
 #lang racket/base
 
 (provide request-handler
-         on-continuation-expiry)
+         on-continuation-expiry
+         rerender-all!)
 
 (require racket/set)
 (require racket/match)
@@ -19,6 +20,9 @@
 (require "jsonp-client.rkt")
 (require "reload.rkt")
 (require "daemon.rkt")
+
+(define static-cached-directory "../static/cached")
+(define static-cached-urlprefix "/cached")
 
 (define nav-index "Package Index")
 (define nav-search "Search")
@@ -48,11 +52,14 @@
 
 (define-values (request-handler named-url)
   (dispatch-rules
+   [("index") main-page]
    [("") main-page]
    [("search") search-page]
    [("package" (string-arg)) package-page]
    [("package" (string-arg) "edit") edit-package-page]
    [("create") edit-package-page]
+   [("login") login-page]
+   [("register-or-reset") register-or-reset-page]
    [("logout") logout-page]
    [("json" "search-completions") json-search-completions]
    [("json" "tag-search-completions") json-tag-search-completions]
@@ -64,6 +71,8 @@
   (bootstrap-continuation-expiry-handler request))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define static-render (make-parameter #f))
 
 (define-syntax-rule (authentication-wrap #:request request body ...)
   (authentication-wrap* #f request (lambda () body ...)))
@@ -82,80 +91,76 @@
                                           #:path "/"
                                           #:expires "Thu, 01 Jan 1970 00:00:00 GMT"))
 
-(define (authentication-wrap* require-login? request body)
-  (define original-session-cookies
+(define-syntax-rule (with-session-cookie cookie-value body ...)
+  (let ((v cookie-value))
+    (parameterize ((bootstrap-cookies
+                    (if v
+                        (list (make-cookie COOKIE v #:path "/" #:secure? #t))
+                        (list clear-session-cookie))))
+      body ...)))
+
+(define (request->session request)
+  (define session-cookies
     (filter (lambda (c) (equal? (client-cookie-name c) COOKIE))
             (request-cookies request)))
-  (define original-session-keys
-    (map client-cookie-value original-session-cookies))
-  ;; (log-info "Session keys from cookie: ~a" original-session-keys)
-  (let redo ((session-keys original-session-keys))
-    (define session (for/or ((k session-keys)) (lookup-session/touch! k)))
-    ;; (log-info "session: ~a" session)
+  (define session-keys (map client-cookie-value session-cookies))
+  ;; (log-info "Session keys from cookie: ~a" session-keys)
+  (for/or ((k session-keys)) (lookup-session/touch! k)))
 
-    ;; If needed in future, we can change this to preserve *all* of
-    ;; the original request by simply calling redo with the new
-    ;; session key, (redo (list new-session-key)).
-    ;;
-    ;; For now, we need to redirect to a clean URL in every case, so
-    ;; just do that.
-    (define (after-login new-session-key)
-      (parameterize ((bootstrap-cookies
-                      (if new-session-key
-                          (list (make-cookie COOKIE new-session-key #:path "/" #:secure? #t))
-                          (list clear-session-cookie))))
-        (with-site-config
-         (bootstrap-redirect (url->string (request-uri request))))))
+(define (authentication-wrap* require-login? request body)
+  (define session (request->session request))
+  ;; (log-info "session: ~a" session)
+  (define requested-url (url->string (request-uri request)))
 
-    (send/suspend/dispatch
-     (lambda (embed-url)
-       (if (and require-login? (not session))
-           (after-login (login-page))
-           (parameterize ((bootstrap-navbar-extension
-                           (cond
-                            [(not session)
-                             `((a ((id "register-button")
-                                   (class "btn btn-default navbar-btn navbar-right")
-                                   (href ,(embed-url
-                                           (lambda (req) (after-login (register-page))))))
-                                  "Register")
-                               (a ((id "sign-in-button")
-                                   (class "btn btn-success navbar-btn navbar-right")
-                                   (href ,(embed-url
-                                           (lambda (req) (after-login (login-page))))))
-                                  "Sign in"))]
-                            [else
-                             `((ul ((class "nav navbar-nav navbar-right"))
-                                   (li ((class "dropdown"))
-                                       (a ((class "dropdown-toggle")
-                                           (data-toggle "dropdown"))
-                                          (img ((src ,(gravatar-image-url (session-email session)
-                                                                          48))))
-                                          " "
-                                          ,(session-email session)
-                                          " "
-                                          (span ((class "caret"))))
-                                       (ul ((class "dropdown-menu") (role "menu"))
-                                           (li (a ((href ,(named-url edit-package-page)))
-                                                  ,(glyphicon 'plus-sign) " New package"))
-                                           (li (a ((href ,(tags-page-url
-                                                           (list
-                                                            (format "author:~a"
-                                                                    (session-email session))))))
-                                                  ,(glyphicon 'user) " My packages"))
-                                           (li ((class "divider"))
-                                               (li (a ((href ,(embed-url
-                                                               (lambda (req) (after-login #f)))))
-                                                      ,(glyphicon 'log-out) " Log out")))))))]))
-                          (current-session session)
-                          (bootstrap-cookies
-                           (if session
-                               (list (make-cookie COOKIE
-                                                  (session-key session)
-                                                  #:path "/"
-                                                  #:secure? #t))
-                               (list))))
-             (with-site-config (body))))))))
+  (if (and require-login? (not session))
+      (login-or-register-flow* requested-url login-form)
+      (parameterize ((bootstrap-navbar-extension
+                      (cond
+                       [(not session)
+                        `((a ((id "register-button")
+                              (class "btn btn-default navbar-btn navbar-right")
+                              (href ,(login-or-register-url requested-url
+                                                            (named-url register-or-reset-page))))
+                             "Register")
+                          (a ((id "sign-in-button")
+                              (class "btn btn-success navbar-btn navbar-right")
+                              (href ,(login-or-register-url requested-url
+                                                            (named-url login-page))))
+                             "Sign in"))]
+                       [else
+                        `((ul ((class "nav navbar-nav navbar-right"))
+                              (li ((class "dropdown"))
+                                  (a ((class "dropdown-toggle")
+                                      (data-toggle "dropdown"))
+                                     (img ((src ,(gravatar-image-url (session-email session)
+                                                                     48))))
+                                     " "
+                                     ,(session-email session)
+                                     " "
+                                     (span ((class "caret"))))
+                                  (ul ((class "dropdown-menu") (role "menu"))
+                                      (li (a ((href ,(named-url edit-package-page)))
+                                             ,(glyphicon 'plus-sign) " New package"))
+                                      (li (a ((href ,(tags-page-url
+                                                      (list
+                                                       (format "author:~a"
+                                                               (session-email session))))))
+                                             ,(glyphicon 'user) " My packages"))
+                                      (li ((class "divider"))
+                                          (li (a ((href
+                                                   ,(login-or-register-url
+                                                     requested-url
+                                                     (named-url logout-page))))
+                                                 ,(glyphicon 'log-out) " Log out")))))))]))
+                     (current-session session)
+                     (bootstrap-cookies
+                      (if session
+                          (list (make-cookie COOKIE
+                                             (session-key session)
+                                             #:path "/"
+                                             #:secure? #t))
+                          (list))))
+        (with-site-config (body)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -208,7 +213,34 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (login-page [error-message #f])
+(define (login-or-register-url k baseurl)
+  (format "~a?~a"
+          baseurl
+          (alist->form-urlencoded (list (cons 'k k)))))
+
+(define (login-or-register-flow request thunk)
+  (define-form-bindings request ([k (named-url main-page)]))
+  (login-or-register-flow* k thunk))
+
+(define (login-or-register-flow* k thunk)
+  (with-session-cookie (thunk)
+    (with-site-config
+      (bootstrap-redirect k))))
+
+(define (login-page request)
+  (login-or-register-flow request login-form))
+
+(define (register-or-reset-page request)
+  (login-or-register-flow request register-form))
+
+(define (logout-page request)
+  (define session (request->session request))
+  (when session (destroy-session! (session-key session)))
+  (login-or-register-flow request (lambda () #f)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (login-form [error-message #f])
   (with-site-config
    (send/suspend/dispatch
     (lambda (embed-url)
@@ -222,10 +254,10 @@
                             ,(form-group 2 2 (label "password" "Password:")
                                          0 5 (password-input "password"))
                             ,(form-group 4 5
-                                         `(a ((href ,(embed-url (lambda (req) (register-page)))))
+                                         `(a ((href ,(embed-url (lambda (req) (register-form)))))
                                            "Need to reset your password?"))
                             ,(form-group 4 5
-                                         `(a ((href ,(embed-url (lambda (req) (register-page)))))
+                                         `(a ((href ,(embed-url (lambda (req) (register-form)))))
                                            "Register an account"))
                             ,@(maybe-splice
                                error-message
@@ -246,16 +278,16 @@
   (define-form-bindings request (email password))
   (if (or (equal? (string-trim email) "")
           (equal? (string-trim password) ""))
-      (login-page "Please enter your email address and password.")
+      (login-form "Please enter your email address and password.")
       (match (authenticate-with-server! email password "")
         ["wrong-code"
-         (login-page "Something went awry; please try again.")]
+         (login-form "Something went awry; please try again.")]
         [(or "emailed" #f)
          (summarise-code-emailing "Incorrect password, or nonexistent user." email)]
         [else
          (create-session! email password)])))
 
-(define (register-page #:email [email ""]
+(define (register-form #:email [email ""]
                        #:code [code ""]
                        #:error-message [error-message #f])
   (with-site-config
@@ -308,7 +340,7 @@
 (define (apply-account-code request)
   (define-form-bindings request (email code password confirm_password))
   (define (retry msg)
-    (register-page #:email email
+    (register-form #:email email
                    #:code code
                    #:error-message msg))
   (cond
@@ -346,14 +378,24 @@
                             (code ,email) ". Please check your email and then click "
                             "the button to continue:")
                           `(a ((class "btn btn-primary")
-                               (href ,(embed-url (lambda (req) (register-page)))))
+                               (href ,(embed-url (lambda (req) (register-form)))))
                             "Enter your code"))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (package-link package-name)
+(define (main-page-url)
+  (if (current-session)
+      (named-url main-page)
+      (format "~a~a" static-cached-urlprefix (named-url main-page))))
+
+(define (view-package-url package-name)
   (define package-name-str (~a package-name))
-  `(a ((href ,(named-url package-page package-name-str))) ,package-name-str))
+  (if (current-session)
+      (named-url package-page package-name-str)
+      (format "~a~a" static-cached-urlprefix (named-url package-page package-name-str))))
+
+(define (package-link package-name)
+  `(a ((href ,(view-package-url package-name))) ,(~a package-name)))
 
 (define (doc-destruct doc)
   (match doc
@@ -469,38 +511,37 @@
     (define package-name-list (package-search "" '((main-distribution #f))))
     (authentication-wrap
      #:request request
-     (bootstrap-response "Racket Package Index"
-                         #:title-element ""
-                         #:body-class "main-page"
-                         `(div ((class "jumbotron"))
-                           (h1 "Racket Packages")
-                           (p "These are the packages in the official "
-                              (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
-                                 "package catalog") ".")
-                           (p (a ((href "http://docs.racket-lang.org/pkg/cmdline.html"))
-                                 (kbd "raco pkg install " (var "package-name")))
-                              " installs a package.")
-                           (p "You can "
-                              (a ((id "create-package-link")
-                                  (href ,(named-url edit-package-page)))
-                                 (span ((class "label label-success"))
-                                       ,(glyphicon 'plus-sign)
-                                       " add your own"))
-                              " packages to the index."))
-                         `(div ((id "search-box"))
-                           (form ((role "form")
-                                  (action ,(named-url search-page)))
-                                 ,(text-input "q" #:placeholder "Search packages")))
-                         `(div
-                           (p ((class "package-count"))
-                              ,(format "~a packages" (length package-name-list)))
-                           ,(package-summary-table package-name-list))))))
-
-(define (logout-page request)
-  (with-site-config
-   (parameterize ((bootstrap-cookies (list clear-session-cookie)))
-     (when (current-session) (destroy-session! (session-key (current-session))))
-     (bootstrap-redirect (named-url main-page)))))
+     (cond
+      [(and (not (current-session)) (not (static-render)))
+       ;; Redirect to static version
+       (bootstrap-redirect (main-page-url))]
+      [else
+       (bootstrap-response "Racket Package Index"
+                           #:title-element ""
+                           #:body-class "main-page"
+                           `(div ((class "jumbotron"))
+                             (h1 "Racket Packages")
+                             (p "These are the packages in the official "
+                                (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
+                                   "package catalog") ".")
+                             (p (a ((href "http://docs.racket-lang.org/pkg/cmdline.html"))
+                                   (kbd "raco pkg install " (var "package-name")))
+                                " installs a package.")
+                             (p "You can "
+                                (a ((id "create-package-link")
+                                    (href ,(named-url edit-package-page)))
+                                   (span ((class "label label-success"))
+                                         ,(glyphicon 'plus-sign)
+                                         " add your own"))
+                                " packages to the index."))
+                           `(div ((id "search-box"))
+                             (form ((role "form")
+                                    (action ,(named-url search-page)))
+                                   ,(text-input "q" #:placeholder "Search packages")))
+                           `(div
+                             (p ((class "package-count"))
+                                ,(format "~a packages" (length package-name-list)))
+                             ,(package-summary-table package-name-list)))]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -517,156 +558,161 @@
    (define package-name (string->symbol package-name-str))
    (define pkg (package-detail package-name))
    (define default-version (hash-ref (or (@ pkg versions) (hash)) 'default (lambda () #f)))
-   (if (not pkg)
-       (bootstrap-response #:code 404
-                           #:message #"No such package"
-                           "Package not found"
-                           `(div "The package " (code ,package-name-str) " does not exist."))
-       (bootstrap-response (~a package-name)
-                           #:title-element ""
-                           `(div ((class "jumbotron"))
-                             (h1 ,(~a package-name))
-                             (p ,(@ pkg description))
-                             ,(cond
-                               [(@ pkg build failure-log)
-                                (build-status (@ pkg build failure-log)
-                                              "failed" "danger" "fire")]
-                               [(and (@ pkg build success-log)
-                                     (@ pkg build dep-failure-log))
-                                (build-status (@ pkg build dep-failure-log)
-                                              "problems" "warning" "question-sign")]
-                               [(@ pkg build success-log)
-                                (build-status (@ pkg build success-log)
-                                              "ok" "success" "ok")]
-                               [else
-                                ""])
-                             (div ((class "dropdown"))
-                                  ,@(let ((docs (or (@ pkg build docs) '())))
-                                      (match docs
-                                        [(list)
-                                         `()]
-                                        [(list doc)
-                                         (define-values (n u) (doc-destruct doc))
-                                         (list (buildhost-link
-                                                #:attributes `((class "btn btn-success btn-lg"))
-                                                u
-                                                "Documentation"))]
-                                        [_
-                                         `((button ((class "btn btn-success btn-lg dropdown-toggle")
-                                                    (data-toggle "dropdown"))
-                                                   "Documentation "
-                                                   (span ((class "caret"))))
-                                           (ul ((class "dropdown-menu")
-                                                (role "menu"))
-                                               ,@(for/list ((doc docs)) `(li ,(doc-link doc)))))]))
+   (cond
+    [(and (not (current-session)) (not (static-render)))
+     ;; Redirect to static version
+     (bootstrap-redirect (view-package-url package-name))]
+    [(not pkg)
+     (bootstrap-response #:code 404
+                         #:message #"No such package"
+                         "Package not found"
+                         `(div "The package " (code ,package-name-str) " does not exist."))]
+    [else
+     (bootstrap-response (~a package-name)
+                         #:title-element ""
+                         `(div ((class "jumbotron"))
+                           (h1 ,(~a package-name))
+                           (p ,(@ pkg description))
+                           ,(cond
+                             [(@ pkg build failure-log)
+                              (build-status (@ pkg build failure-log)
+                                            "failed" "danger" "fire")]
+                             [(and (@ pkg build success-log)
+                                   (@ pkg build dep-failure-log))
+                              (build-status (@ pkg build dep-failure-log)
+                                            "problems" "warning" "question-sign")]
+                             [(@ pkg build success-log)
+                              (build-status (@ pkg build success-log)
+                                            "ok" "success" "ok")]
+                             [else
+                              ""])
+                           (div ((class "dropdown"))
+                                ,@(let ((docs (or (@ pkg build docs) '())))
+                                    (match docs
+                                      [(list)
+                                       `()]
+                                      [(list doc)
+                                       (define-values (n u) (doc-destruct doc))
+                                       (list (buildhost-link
+                                              #:attributes `((class "btn btn-success btn-lg"))
+                                              u
+                                              "Documentation"))]
+                                      [_
+                                       `((button ((class "btn btn-success btn-lg dropdown-toggle")
+                                                  (data-toggle "dropdown"))
+                                                 "Documentation "
+                                                 (span ((class "caret"))))
+                                         (ul ((class "dropdown-menu")
+                                              (role "menu"))
+                                             ,@(for/list ((doc docs)) `(li ,(doc-link doc)))))]))
 
-                                  ;; Heuristic guess as to whether we should present a "browse"
-                                  ;; link or a "download" link.
-                                  " "
-                                  ,(if (equal? (@ default-version source)
-                                               (@ default-version source_url))
-                                       `(a ((class "btn btn-default btn-lg")
-                                            (href ,(@ default-version source_url)))
-                                         ,(glyphicon 'download) " Download"
-                                         ;; ,(if (regexp-match? "(?i:\\.zip$)" (or (@ default-version source_url) ""))
-                                         ;;      " Zip file"
-                                         ;;      " Download")
-                                         )
-                                       `(a ((class "btn btn-default btn-lg")
-                                            (href ,(@ default-version source_url)))
-                                         ,(glyphicon 'link) " Code"))
+                                ;; Heuristic guess as to whether we should present a "browse"
+                                ;; link or a "download" link.
+                                " "
+                                ,(if (equal? (@ default-version source)
+                                             (@ default-version source_url))
+                                     `(a ((class "btn btn-default btn-lg")
+                                          (href ,(@ default-version source_url)))
+                                       ,(glyphicon 'download) " Download"
+                                       ;; ,(if (regexp-match? "(?i:\\.zip$)" (or (@ default-version source_url) ""))
+                                       ;;      " Zip file"
+                                       ;;      " Download")
+                                       )
+                                     `(a ((class "btn btn-default btn-lg")
+                                          (href ,(@ default-version source_url)))
+                                       ,(glyphicon 'link) " Code"))
 
-                                  ,@(maybe-splice
-                                     (member (current-email) (or (@ pkg authors) '()))
-                                     " "
-                                     `(a ((class "btn btn-info btn-lg")
-                                          (href ,(named-url edit-package-page package-name-str)))
-                                       ,(glyphicon 'edit) " Edit this package"))
-                                  ))
+                                ,@(maybe-splice
+                                   (member (current-email) (or (@ pkg authors) '()))
+                                   " "
+                                   `(a ((class "btn btn-info btn-lg")
+                                        (href ,(named-url edit-package-page package-name-str)))
+                                     ,(glyphicon 'edit) " Edit this package"))
+                                ))
 
-                           (if (@ pkg _LOCALLY_MODIFIED_)
-                               `(div ((class "alert alert-warning")
-                                      (role "alert"))
-                                 ,(glyphicon 'exclamation-sign)
-                                 " This package has been modified since the package index was last rebuilt."
-                                 " The next index refresh is scheduled for "
-                                 ,(utc->string (/ (next-fetch-deadline) 1000)) ".")
-                               "")
+                         (if (@ pkg _LOCALLY_MODIFIED_)
+                             `(div ((class "alert alert-warning")
+                                    (role "alert"))
+                               ,(glyphicon 'exclamation-sign)
+                               " This package has been modified since the package index was last rebuilt."
+                               " The next index refresh is scheduled for "
+                               ,(utc->string (/ (next-fetch-deadline) 1000)) ".")
+                             "")
 
-                           (if (@ pkg checksum-error)
-                               `(div ((class "alert alert-danger")
-                                      (role "alert"))
-                                 (span ((class "label label-danger"))
-                                       "Checksum error")
-                                 " The package checksum does not match"
-                                 " the package source code.")
-                               "")
+                         (if (@ pkg checksum-error)
+                             `(div ((class "alert alert-danger")
+                                    (role "alert"))
+                               (span ((class "label label-danger"))
+                                     "Checksum error")
+                               " The package checksum does not match"
+                               " the package source code.")
+                             "")
 
-                           `(table ((class "package-details"))
-                             (tr (th "Authors")
-                                 (td (div ((class "authors-detail"))
-                                          ,(authors-list #:gravatars? #t (@ pkg authors)))))
-                             (tr (th "Documentation")
-                                 (td ,(doc-links (@ pkg build docs))))
-                             (tr (th "Tags")
-                                 (td ,(tag-links (@ pkg tags))))
-                             (tr (th "Last updated")
-                                 (td ,(utc->string (@ pkg last-updated))))
-                             (tr (th "Ring")
-                                 (td ,(~a (or (@ pkg ring) "N/A"))))
-                             (tr (th "Conflicts")
-                                 (td ,(package-links (@ pkg conflicts))))
-                             (tr (th "Dependencies")
-                                 (td ,(package-links (@ pkg dependencies))))
-                             (tr (th "Most recent build results")
-                                 (td (ul ((class "build-results"))
-                                         ,@(maybe-splice
-                                            (@ pkg build success-log)
-                                            `(li "Compiled successfully: "
-                                              ,(buildhost-link (@ pkg build success-log) "transcript")))
-                                         ,@(maybe-splice
-                                            (@ pkg build failure-log)
-                                            `(li "Compiled unsuccessfully: "
-                                              ,(buildhost-link (@ pkg build failure-log) "transcript")))
-                                         ,@(maybe-splice
-                                            (@ pkg build conflicts-log)
-                                            `(li "Conflicts: "
-                                              ,(buildhost-link (@ pkg build conflicts-log) "details")))
-                                         ,@(maybe-splice
-                                            (@ pkg build dep-failure-log)
-                                            `(li "Dependency problems: "
-                                              ,(buildhost-link (@ pkg build dep-failure-log) "details")))
-                                         )))
-                             ,@(let* ((vs (or (@ pkg versions) (hash)))
-                                      (empty-checksum "9f098dddde7f217879070816090c1e8e74d49432")
-                                      (vs (for/hash (((k v) (in-hash vs))
-                                                     #:when (not (equal? (@ v checksum)
-                                                                         empty-checksum)))
-                                            (values k v))))
-                                 (maybe-splice
-                                  (not (hash-empty? vs))
-                                  `(tr (th "Versions")
-                                    (td (table ((class "package-versions"))
-                                               (tr (th "Version")
-                                                   (th "Source")
-                                                   (th "Checksum"))
-                                               ,@(for/list
-                                                     (((version-sym v) (in-hash vs)))
-                                                   `(tr
-                                                     (td ,(~a version-sym))
-                                                     (td (a ((href ,(@ v source_url)))
-                                                            ,(@ v source)))
-                                                     (td ,(@ v checksum)))))))))
-                             (tr (th "Last checked")
-                                 (td ,(utc->string (@ pkg last-checked))))
-                             (tr (th "Last edited")
-                                 (td ,(utc->string (@ pkg last-edit))))
-                             (tr (th "Modules")
-                                 (td (ul ((class "module-list"))
-                                         ,@(for/list ((mod (or (@ pkg modules) '())))
-                                             (match-define (list kind path) mod)
-                                             `(li ((class ,kind)) ,path)))))
-                             )))))
+                         `(table ((class "package-details"))
+                           (tr (th "Authors")
+                               (td (div ((class "authors-detail"))
+                                        ,(authors-list #:gravatars? #t (@ pkg authors)))))
+                           (tr (th "Documentation")
+                               (td ,(doc-links (@ pkg build docs))))
+                           (tr (th "Tags")
+                               (td ,(tag-links (@ pkg tags))))
+                           (tr (th "Last updated")
+                               (td ,(utc->string (@ pkg last-updated))))
+                           (tr (th "Ring")
+                               (td ,(~a (or (@ pkg ring) "N/A"))))
+                           (tr (th "Conflicts")
+                               (td ,(package-links (@ pkg conflicts))))
+                           (tr (th "Dependencies")
+                               (td ,(package-links (@ pkg dependencies))))
+                           (tr (th "Most recent build results")
+                               (td (ul ((class "build-results"))
+                                       ,@(maybe-splice
+                                          (@ pkg build success-log)
+                                          `(li "Compiled successfully: "
+                                            ,(buildhost-link (@ pkg build success-log) "transcript")))
+                                       ,@(maybe-splice
+                                          (@ pkg build failure-log)
+                                          `(li "Compiled unsuccessfully: "
+                                            ,(buildhost-link (@ pkg build failure-log) "transcript")))
+                                       ,@(maybe-splice
+                                          (@ pkg build conflicts-log)
+                                          `(li "Conflicts: "
+                                            ,(buildhost-link (@ pkg build conflicts-log) "details")))
+                                       ,@(maybe-splice
+                                          (@ pkg build dep-failure-log)
+                                          `(li "Dependency problems: "
+                                            ,(buildhost-link (@ pkg build dep-failure-log) "details")))
+                                       )))
+                           ,@(let* ((vs (or (@ pkg versions) (hash)))
+                                    (empty-checksum "9f098dddde7f217879070816090c1e8e74d49432")
+                                    (vs (for/hash (((k v) (in-hash vs))
+                                                   #:when (not (equal? (@ v checksum)
+                                                                       empty-checksum)))
+                                          (values k v))))
+                               (maybe-splice
+                                (not (hash-empty? vs))
+                                `(tr (th "Versions")
+                                  (td (table ((class "package-versions"))
+                                             (tr (th "Version")
+                                                 (th "Source")
+                                                 (th "Checksum"))
+                                             ,@(for/list
+                                                   (((version-sym v) (in-hash vs)))
+                                                 `(tr
+                                                   (td ,(~a version-sym))
+                                                   (td (a ((href ,(@ v source_url)))
+                                                          ,(@ v source)))
+                                                   (td ,(@ v checksum)))))))))
+                           (tr (th "Last checked")
+                               (td ,(utc->string (@ pkg last-checked))))
+                           (tr (th "Last edited")
+                               (td ,(utc->string (@ pkg last-edit))))
+                           (tr (th "Modules")
+                               (td (ul ((class "module-list"))
+                                       ,@(for/list ((mod (or (@ pkg modules) '())))
+                                           (match-define (list kind path) mod)
+                                           `(li ((class ,kind)) ,path)))))
+                           ))])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -678,7 +724,7 @@
    (cond
     [(and pkg (not (member (current-email) (or (@ pkg authors) '()))))
      ;; Not ours. Show it instead.
-     (bootstrap-redirect (named-url package-page package-name-str))]
+     (bootstrap-redirect (view-package-url package-name))]
     [(not pkg)
      ;; Doesn't exist.
      (package-form #f (draft-package ""
@@ -847,7 +893,7 @@
                                                 has-old-name?
                                                 " "
                                                 `(a ((class "btn btn-default")
-                                                     (href ,(named-url package-page old-name)))
+                                                     (href ,(view-package-url old-name)))
                                                   "Cancel changes and return to package page"))))))
                             ))))))
 
@@ -866,7 +912,7 @@
    (define completion-ch (make-channel))
    (delete-package! completion-ch (string->symbol package-name-str))
    (channel-get completion-ch)
-   (bootstrap-redirect (named-url main-page))))
+   (bootstrap-redirect (main-page-url))))
 
 (define ((update-draft draft0) request)
   (define draft (read-draft-form draft0 (request-bindings request)))
@@ -875,7 +921,7 @@
     ["save_changes"
      (if (save-draft! draft)
          (with-site-config
-          (bootstrap-redirect (named-url package-page (~a (draft-package-name draft)))))
+           (bootstrap-redirect (view-package-url (draft-package-name draft))))
          (package-form "Save failed."
                        ;; ^ TODO: This is the worst error message.
                        ;;         Right up there with "parse error".
@@ -1126,18 +1172,46 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (rerender-indexes!)
-  (log-info "Rerendering indexes"))
+(define (static-render! handler . named-url-args)
+  (local-require racket/promise)
+  (local-require racket/file)
+  (local-require web-server/private/servlet)
+  (local-require web-server/http/request-structs)
+  (define request-url (apply named-url handler named-url-args))
+  (log-info "Rendering static version of ~a" request-url)
+  (define response
+    (parameterize ((static-render #t))
+      (call-with-continuation-barrier
+       (lambda ()
+         (call-with-continuation-prompt
+          (lambda ()
+            (apply handler
+                   (request #"GET"
+                            (string->url request-url)
+                            '()
+                            (delay '())
+                            #f
+                            "127.0.0.1"
+                            0
+                            "127.0.0.1")
+                   named-url-args))
+          servlet-prompt)))))
+  (define filename (format "~a~a" static-cached-directory request-url))
+  (make-parent-directory* filename)
+  (call-with-output-file filename
+    (response-output response)
+    #:exists 'replace))
 
-(define (rerender-package! package-name)
-  (log-info "Rerendering package ~a" package-name))
+(define (rerender-all!)
+  (for ((p (all-package-names))) (static-render! package-page (symbol->string p)))
+  (static-render! main-page))
 
 (define (package-change-handler)
   (let loop ((index-rerender-needed? #f)
              (pending-completions '()))
     (sync/timeout (and index-rerender-needed?
                        (lambda ()
-                         (rerender-indexes!)
+                         (static-render! main-page)
                          (for ((completion-ch pending-completions))
                            (channel-put completion-ch (void)))
                          (loop #f '())))
@@ -1145,7 +1219,7 @@
                               (lambda (_)
                                 (match (thread-receive)
                                   [(list completion-ch package-name)
-                                   (rerender-package! package-name)
+                                   (static-render! package-page (symbol->string package-name))
                                    (loop #t (if completion-ch
                                                 (cons completion-ch pending-completions)
                                                 pending-completions))]))))))
