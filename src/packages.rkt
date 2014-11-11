@@ -21,9 +21,9 @@
 (require racket/string)
 (require racket/list)
 (require web-server/private/gzip)
-(require (only-in web-server/private/util exn->string))
 (require net/url)
 (require "reload.rkt")
+(require "daemon.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -71,16 +71,11 @@
                [next-fetch-deadline (+ (current-inexact-milliseconds) package-fetch-interval)]))
 
 (define (package-manager)
-  (with-handlers* ((exn:fail? (lambda (e)
-                                (log-error "*** PACKAGE MANAGER CRASHED ***\n~a"
-                                           (exn->string e))
-                                (sleep 5)
-                                (package-manager))))
-    (package-manager-main (package-manager-state (hash)
-                                                 (set)
-                                                 (set)
-                                                 0
-                                                 base-bogus-timeout))))
+  (package-manager-main (package-manager-state (hash)
+                                               (set)
+                                               (set)
+                                               0
+                                               base-bogus-timeout)))
 
 (define (refresh-packages raw-remote-packages state)
   (define local-packages (package-manager-state-local-packages state))
@@ -195,7 +190,7 @@
 
 (define package-manager-thread
   (make-persistent-state 'package-manager-thread
-                         (lambda () (thread package-manager))))
+                         (lambda () (daemon-thread 'package-manager package-manager))))
 
 (define (manager-rpc . request)
   (define ch (make-channel))
