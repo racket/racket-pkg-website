@@ -129,7 +129,7 @@
 
 (define (replace-package completion-ch old-pkg new-pkg state)
   (define local-packages (package-manager-state-local-packages state))
-  (define old-package-name (string->symbol (@ old-pkg name)))
+  (define old-package-name (string->symbol (or (@ old-pkg name) "")))
   (define new-package-name (string->symbol (@ (or new-pkg old-pkg) name)))
   (when (not (eq? old-package-name new-package-name))
     (notify-package-change! #f old-package-name))
