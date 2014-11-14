@@ -10,7 +10,7 @@
          lookup-session)
 
 (require "randomness.rkt")
-(require "reload.rkt")
+(require reloadable)
 
 (define current-session (make-parameter #f))
 (define session-lifetime (make-parameter (* 7 24 60 60 1000))) ;; one week in milliseconds

@@ -24,7 +24,7 @@
 (require racket/list)
 (require web-server/private/gzip)
 (require net/url)
-(require "reload.rkt")
+(require reloadable)
 (require "daemon.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

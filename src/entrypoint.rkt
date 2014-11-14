@@ -1,13 +1,13 @@
 #lang racket/base
 
-(provide (struct-out entry-point) ;; from reload.rkt
-         make-entry-point ;; from reload.rkt
+(provide (struct-out reloadable-entry-point) ;; from reloadable
+         make-reloadable-entry-point ;; from reloadable
          start-service)
 
 (require web-server/servlet-env)
 (require web-server/managers/lru)
+(require reloadable)
 (require "signals.rkt")
-(require "reload.rkt")
 
 (define (start-service* #:port [port 8443]
                         #:ssl? [ssl? #t]
@@ -40,5 +40,5 @@
   (reload!)
   (start-service* #:port port
                   #:ssl? ssl?
-                  (lambda (req) ((entry-point-value request-handler-entry-point) req))
-                  (lambda (req) ((entry-point-value on-continuation-expiry-entry-point) req))))
+                  (reloadable-entry-point->procedure request-handler-entry-point)
+                  (reloadable-entry-point->procedure on-continuation-expiry-entry-point)))

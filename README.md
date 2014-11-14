@@ -1,5 +1,11 @@
 # Racket Package Library Website
 
+## Prerequisites
+
+You will need to install the following Racket packages:
+
+    raco pkg install reloadable
+
 ## Local testing
 
 You will need some dummy SSL keys. Run `make keys` to produce some.

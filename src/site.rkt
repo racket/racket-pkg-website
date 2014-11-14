@@ -18,7 +18,7 @@
 (require "packages.rkt")
 (require "sessions.rkt")
 (require "jsonp-client.rkt")
-(require "reload.rkt")
+(require reloadable)
 (require "daemon.rkt")
 
 (define static-cached-directory "../static/cached")

@@ -4,7 +4,7 @@
 (provide poll-signal
 	 start-restart-signal-watcher)
 
-(require "reload.rkt")
+(require reloadable)
 
 (define (poll-signal signal-file-name message handler)
   (when (file-exists? signal-file-name)
@@ -28,12 +28,14 @@
 		    (lambda () (exit 0)))
        (poll-signal "../signals/.reload"
                     "Reload signal received - attempting to reload code"
-                    (lambda () (reload!)))
+                    reload!)
        (poll-signal "../signals/.fetchindex"
                     "Index refresh signal received"
-                    (lambda () ((entry-point-value (lookup-entry-point 'refresh-packages!)))))
+                    (reloadable-entry-point->procedure
+                     (lookup-reloadable-entry-point 'refresh-packages!)))
        (poll-signal "../signals/.rerender"
                     "Static rerender request received"
-                    (lambda () ((entry-point-value (lookup-entry-point 'rerender-all!)))))
+                    (reloadable-entry-point->procedure
+                     (lookup-reloadable-entry-point 'rerender-all!)))
        (sleep 0.5)
        (loop)))))
