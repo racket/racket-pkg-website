@@ -1,3 +1,6 @@
+Link to Github's README section in the Documentation link from a
+package page, if such a Github section exists.
+
 Documentation/help text on the edit package page?
 
 Move `generic-input` and friends into bootstrap.rkt
