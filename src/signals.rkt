@@ -32,10 +32,10 @@
        (poll-signal "../signals/.fetchindex"
                     "Index refresh signal received"
                     (reloadable-entry-point->procedure
-                     (lookup-reloadable-entry-point 'refresh-packages!)))
+                     (lookup-reloadable-entry-point 'refresh-packages! "packages.rkt")))
        (poll-signal "../signals/.rerender"
                     "Static rerender request received"
                     (reloadable-entry-point->procedure
-                     (lookup-reloadable-entry-point 'rerender-all!)))
+                     (lookup-reloadable-entry-point 'rerender-all! "site.rkt")))
        (sleep 0.5)
        (loop)))))
