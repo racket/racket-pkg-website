@@ -8,6 +8,8 @@
          sorted-package-names
          package-detail
          package-batch-detail
+         package-external-information
+         set-package-external-information!
          package-search
          replace-package!
          delete-package!
@@ -44,6 +46,7 @@
 (define base-bogus-timeout (* 5 1000)) ;; 5 seconds
 
 (struct package-manager-state (local-packages
+                               external-information
                                all-tags
                                all-formal-tags
                                next-fetch-deadline
@@ -74,6 +77,7 @@
 
 (define (package-manager)
   (package-manager-main (package-manager-state (hash)
+                                               (hash)
                                                (set)
                                                (set)
                                                0
@@ -111,10 +115,10 @@
       (if new-local-pkg
           (hash-set acc package-name new-local-pkg)
           acc)))
-  (rebuild-all-tags (struct-copy package-manager-state state
-                                 [local-packages new-local-packages])))
+  (rebuild-indexes (struct-copy package-manager-state state
+                                [local-packages new-local-packages])))
 
-(define (rebuild-all-tags state)
+(define (rebuild-indexes state)
   (struct-copy package-manager-state state
                [all-tags
                 (for/fold ((ts (set)))
@@ -134,7 +138,7 @@
   (when (not (eq? old-package-name new-package-name))
     (notify-package-change! #f old-package-name))
   (notify-package-change! completion-ch new-package-name)
-  (rebuild-all-tags
+  (rebuild-indexes
    (struct-copy package-manager-state state
                 [local-packages
                  (hash-set (if old-pkg
@@ -157,6 +161,7 @@
 
 (define (package-manager-main state)
   (match-define (package-manager-state local-packages
+                                       external-information
                                        all-tags
                                        all-formal-tags
                                        next-fetch-deadline
@@ -198,6 +203,14 @@
           (values (lookup-package name local-packages) state)]
          [(list 'package-batch-detail names)
           (values (for/list ((name names)) (lookup-package name local-packages)) state)]
+         [(list 'external-information name)
+          (values (hash-ref external-information name (lambda () (hash))) state)]
+         [(list 'set-external-information! name info)
+          (values (void) (struct-copy package-manager-state state
+                                      [external-information
+                                       (if info
+                                           (hash-set external-information name info)
+                                           (hash-remove external-information name))]))]
          [(list 'replace-package! completion-ch old-pkg new-pkg)
           (values (void) (replace-package completion-ch old-pkg new-pkg state))]
          [(list 'delete-package! completion-ch package-name)
@@ -207,7 +220,8 @@
 
 (define package-manager-thread
   (make-persistent-state 'package-manager-thread
-                         (lambda () (daemon-thread 'package-manager package-manager))))
+                         (lambda () (daemon-thread 'package-manager
+                                                   (lambda () (package-manager))))))
 
 ;; Set to a thread in site.rkt (because the thread needs to call
 ;; routines only available from site.rkt)
@@ -232,6 +246,10 @@
 (define (all-formal-tags) (manager-rpc 'all-formal-tags))
 (define (package-detail package-name) (manager-rpc 'package-detail package-name))
 (define (package-batch-detail package-names) (manager-rpc 'package-batch-detail package-names))
+(define (package-external-information package-name)
+  (manager-rpc 'external-information package-name))
+(define (set-package-external-information! package-name info)
+  (manager-rpc 'set-external-information! package-name info))
 (define (replace-package! completion-ch old-pkg new-pkg)
   (manager-rpc 'replace-package! completion-ch old-pkg new-pkg))
 (define (delete-package! completion-ch package-name)

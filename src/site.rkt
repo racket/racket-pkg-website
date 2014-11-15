@@ -9,6 +9,8 @@
 (require racket/format)
 (require racket/date)
 (require racket/string)
+(require racket/port)
+(require net/url)
 (require net/uri-codec)
 (require web-server/servlet)
 (require json)
@@ -475,10 +477,15 @@
                ,(authors-list (@ pkg authors)))
            (td (p ,(@ pkg description))
                ,@(maybe-splice
-                  (pair? (@ pkg build docs))
+                  (or (pair? (package-docs pkg)) (package-readme-url pkg))
                   `(div
                     (span ((class "doctags-label")) "Docs: ")
-                    ,(doc-links (@ pkg build docs))))
+                    ,(doc-links (package-docs pkg))
+                    ,@(maybe-splice (package-readme-url pkg)
+                                    " "
+                                    `(a ((href ,(package-readme-url pkg)))
+                                      "README"))
+                    ))
                ,@(maybe-splice
                   (pair? (@ pkg tags))
                   `(div
@@ -551,12 +558,21 @@
                      `(span ((class ,(format "label label-~a" label-type)))
                        ,(glyphicon glyphicon-type) " " ,str))))
 
+(define (package-default-version pkg)
+  (hash-ref (or (@ pkg versions) (hash)) 'default (lambda () #f)))
+
+(define (package-docs pkg)
+  (or (@ pkg build docs) '()))
+
+(define (package-readme-url pkg)
+  (@ (package-external-information (string->symbol (@ pkg name))) readme-url))
+
 (define (package-page request package-name-str)
   (authentication-wrap
    #:request request
    (define package-name (string->symbol package-name-str))
    (define pkg (package-detail package-name))
-   (define default-version (hash-ref (or (@ pkg versions) (hash)) 'default (lambda () #f)))
+   (define default-version (package-default-version pkg))
    (cond
     [(and (not (current-session)) (not (static-render)))
      ;; Redirect to static version
@@ -586,7 +602,7 @@
                              [else
                               ""])
                            (div ((class "dropdown"))
-                                ,@(let ((docs (or (@ pkg build docs) '())))
+                                ,@(let ((docs (package-docs pkg)))
                                     (match docs
                                       [(list)
                                        `()]
@@ -595,15 +611,24 @@
                                        (list (buildhost-link
                                               #:attributes `((class "btn btn-success btn-lg"))
                                               u
-                                              "Documentation"))]
+                                              `(span ,(glyphicon 'file) " Documentation")))]
                                       [_
                                        `((button ((class "btn btn-success btn-lg dropdown-toggle")
                                                   (data-toggle "dropdown"))
-                                                 "Documentation "
+                                                 ,(glyphicon 'file)
+                                                 " Documentation "
                                                  (span ((class "caret"))))
                                          (ul ((class "dropdown-menu")
                                               (role "menu"))
                                              ,@(for/list ((doc docs)) `(li ,(doc-link doc)))))]))
+
+                                " "
+                                ,@(maybe-splice
+                                   (package-readme-url pkg)
+                                   `(a ((class "btn btn-info btn-lg")
+                                        (href ,(package-readme-url pkg)))
+                                     ,(glyphicon 'eye-open)
+                                     " README"))
 
                                 ;; Heuristic guess as to whether we should present a "browse"
                                 ;; link or a "download" link.
@@ -652,7 +677,7 @@
                                (td (div ((class "authors-detail"))
                                         ,(authors-list #:gravatars? #t (@ pkg authors)))))
                            (tr (th "Documentation")
-                               (td ,(doc-links (@ pkg build docs))))
+                               (td ,(doc-links (package-docs pkg))))
                            (tr (th "Tags")
                                (td ,(tag-links (@ pkg tags))))
                            (tr (th "Last updated")
@@ -1201,8 +1226,34 @@
     (response-output response)
     #:exists 'replace))
 
+;; TODO: fold the collection of this information into the package
+;; database itself.
+(define (update-external-package-information! package-name)
+  (define pkg (package-detail package-name))
+  (define default-version (package-default-version pkg))
+  (define external-information
+    (and pkg
+         (if (equal? (@ default-version source)
+                     (@ default-version source_url))
+             ;; We don't know where to look for a readme.
+             (hash)
+             ;; It's probably a github-like repo. Check for a readme.
+             (let ((contents
+                    (port->string
+                     (get-pure-port (string->url (@ default-version source_url))
+                                    #:redirections 10))))
+               ;;(log-info "CONTENTS: ~a === ~a" (@ default-version source_url) contents)
+               (if (regexp-match? #px"(?i:id=.readme.)" contents)
+                   (let ((readme-url (string-append (@ default-version source_url) "#readme")))
+                     (log-info "Package ~a has a readme at ~a" package-name readme-url)
+                     (hash 'readme-url readme-url))
+                   (hash))))))
+  (set-package-external-information! package-name external-information))
+
 (define (rerender-all!)
-  (for ((p (all-package-names))) (static-render! package-page (symbol->string p)))
+  (for ((p (all-package-names)))
+    (update-external-package-information! p)
+    (static-render! package-page (symbol->string p)))
   (static-render! main-page))
 
 (define (package-change-handler)
@@ -1218,6 +1269,7 @@
                               (lambda (_)
                                 (match (thread-receive)
                                   [(list completion-ch package-name)
+                                   (update-external-package-information! package-name)
                                    (static-render! package-page (symbol->string package-name))
                                    (loop #t (if completion-ch
                                                 (cons completion-ch pending-completions)
