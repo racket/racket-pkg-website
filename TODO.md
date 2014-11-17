@@ -23,6 +23,10 @@ you should check the existence of repos/github repos/urls/etc via XHR
 
 Much more input validation is needed
 
+Mobile nav doesn't show up
+
+Table on index page doesn't fit properly on mobile. Somehow make it responsive?
+
 ## Design possibilities
 
 "the big gray box should probably not go all the way to the top of the page"
