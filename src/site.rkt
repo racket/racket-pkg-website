@@ -26,6 +26,8 @@
 (define static-cached-directory "../static/cached")
 (define static-cached-urlprefix "/cached")
 
+(define disable-cache? #f)
+
 (define nav-index "Package Index")
 (define nav-search "Search")
 
@@ -385,16 +387,22 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define (use-cache?)
+  ;; We use the cache if it isn't disabled, but ONLY when the user is
+  ;; not logged in to an account. When they are logged in, they see
+  ;; user-specific options which don't cache well.
+  (not (or (current-session) disable-cache?)))
+
 (define (main-page-url)
-  (if (current-session)
-      (named-url main-page)
-      (format "~a~a" static-cached-urlprefix (named-url main-page))))
+  (if (use-cache?)
+      (format "~a~a" static-cached-urlprefix (named-url main-page))
+      (named-url main-page)))
 
 (define (view-package-url package-name)
   (define package-name-str (~a package-name))
-  (if (current-session)
-      (named-url package-page package-name-str)
-      (format "~a~a" static-cached-urlprefix (named-url package-page package-name-str))))
+  (if (use-cache?)
+      (format "~a~a" static-cached-urlprefix (named-url package-page package-name-str))
+      (named-url package-page package-name-str)))
 
 (define (package-link package-name)
   `(a ((href ,(view-package-url package-name))) ,(~a package-name)))
@@ -518,7 +526,7 @@
     (authentication-wrap
      #:request request
      (cond
-      [(and (not (current-session)) (not (static-render)))
+      [(and (use-cache?) (not (static-render)))
        ;; Redirect to static version
        (bootstrap-redirect (main-page-url))]
       [else
@@ -574,7 +582,7 @@
    (define pkg (package-detail package-name))
    (define default-version (package-default-version pkg))
    (cond
-    [(and (not (current-session)) (not (static-render)))
+    [(and (use-cache?) (not (static-render)))
      ;; Redirect to static version
      (bootstrap-redirect (view-package-url package-name))]
     [(not pkg)
