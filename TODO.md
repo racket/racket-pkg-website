@@ -23,8 +23,6 @@ you should check the existence of repos/github repos/urls/etc via XHR
 
 Much more input validation is needed
 
-Mobile nav doesn't show up
-
 Table on index page doesn't fit properly on mobile. Somehow make it responsive?
 
 There's github API for determining whether there's a preferred README
