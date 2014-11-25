@@ -27,6 +27,22 @@ Mobile nav doesn't show up
 
 Table on index page doesn't fit properly on mobile. Somehow make it responsive?
 
+There's github API for determining whether there's a preferred README
+for a repo. We're currently doing a brute, dumb thing (downloading the
+HTML and looking for an id of "readme" with a regex!), and should use
+the API instead:
+
+ - HEAD https://api.github.com/repos/USERNAME/REPONAME/readme
+ - if it's 200, there's a README
+ - if it's 404, there isn't
+
+Further, if you GET that URL instead of HEAD, you get JSON with an
+"html_url" field that links to a rendered version. However, the JSON
+response also includes the actual text of the README (!), and the link
+isn't to the main page for the repo, so it might be better to just
+link to `...#readme` as we currently do and ignore the URL that Github
+suggests.
+
 ## Design possibilities
 
 "the big gray box should probably not go all the way to the top of the page"
