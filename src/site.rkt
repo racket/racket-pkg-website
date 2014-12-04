@@ -1259,28 +1259,40 @@
   (set-package-external-information! package-name external-information))
 
 (define (rerender-all!)
-  (for ((p (all-package-names)))
-    (update-external-package-information! p)
-    (static-render! package-page (symbol->string p)))
-  (static-render! main-page))
+  (thread-send (package-change-handler-thread) 'rerender-all!))
 
-(define (package-change-handler)
-  (let loop ((index-rerender-needed? #f)
-             (pending-completions '()))
-    (sync/timeout (and index-rerender-needed?
-                       (lambda ()
-                         (static-render! main-page)
-                         (for ((completion-ch pending-completions))
-                           (channel-put completion-ch (void)))
-                         (loop #f '())))
-                  (handle-evt (thread-receive-evt)
-                              (lambda (_)
-                                (match (thread-receive)
-                                  [(list completion-ch package-name)
-                                   (update-external-package-information! package-name)
-                                   (static-render! package-page (symbol->string package-name))
-                                   (loop #t (if completion-ch
-                                                (cons completion-ch pending-completions)
-                                                pending-completions))]))))))
+(define (package-change-handler index-rerender-needed? pending-completions)
+  (sync/timeout (and index-rerender-needed?
+                     (lambda ()
+                       (static-render! main-page)
+                       (for ((completion-ch pending-completions))
+                         (channel-put completion-ch (void)))
+                       (package-change-handler #f '())))
+                (handle-evt (thread-receive-evt)
+                            (lambda (_)
+                              (match (thread-receive)
+                                ['upgrade
+                                 (package-change-handler index-rerender-needed?
+                                                         pending-completions)]
+                                ['rerender-all!
+                                 (log-info "rerender-all!")
+                                 (for ((p (all-package-names)))
+                                   (update-external-package-information! p)
+                                   (static-render! package-page (symbol->string p)))
+                                 (static-render! main-page)
+                                 (package-change-handler index-rerender-needed?
+                                                         pending-completions)]
+                                [(list 'package-changed completion-ch package-name)
+                                 (update-external-package-information! package-name)
+                                 (static-render! package-page (symbol->string package-name))
+                                 (package-change-handler
+                                  #t
+                                  (if completion-ch
+                                      (cons completion-ch pending-completions)
+                                      pending-completions))])))))
 
-(package-change-handler-thread (daemon-thread 'package-change-handler package-change-handler))
+(when (not (package-change-handler-thread))
+  (package-change-handler-thread (daemon-thread 'package-change-handler
+                                                (lambda () (package-change-handler #f '())))))
+
+(thread-send (package-change-handler-thread) 'upgrade) ;; switch to new code

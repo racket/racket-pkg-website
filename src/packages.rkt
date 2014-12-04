@@ -234,7 +234,8 @@
     (if (not (package-change-handler-thread))
         (begin (sleep 0.5)
                (retry))
-        (thread-send (package-change-handler-thread) (list completion-ch package-name)))))
+        (thread-send (package-change-handler-thread)
+                     (list 'package-changed completion-ch package-name)))))
 
 (define (manager-rpc . request)
   (define ch (make-channel))
