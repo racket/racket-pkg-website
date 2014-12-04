@@ -483,7 +483,7 @@
                   `(span ((class "label label-info")) "New")))
            (td (h2 ,(package-link (@ pkg name)))
                ,(authors-list (@ pkg authors)))
-           (td (p ,(@ pkg description))
+           (td (p ,(or (@ pkg description) ""))
                ,@(maybe-splice
                   (or (pair? (package-docs pkg)) (package-readme-url pkg))
                   `(div
@@ -595,7 +595,7 @@
                          #:title-element ""
                          `(div ((class "jumbotron"))
                            (h1 ,(~a package-name))
-                           (p ,(@ pkg description))
+                           (p ,(or (@ pkg description) ""))
                            ,(cond
                              [(@ pkg build failure-log)
                               (build-status (@ pkg build failure-log)
@@ -769,7 +769,7 @@
      (package-form #f
                    (draft-package package-name-str
                                   package-name-str
-                                  (@ pkg description)
+                                  (or (@ pkg description) "")
                                   (@ pkg authors)
                                   (@ pkg tags)
                                   (for/list (((ver info) (in-hash (@ pkg versions))))
