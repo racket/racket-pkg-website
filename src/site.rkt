@@ -442,7 +442,7 @@
                                `(li ,(author-link author #:gravatar? gravatars?)))))
 
 (define (package-links #:pretty? [pretty? #t] package-names)
-  (if (and pretty? (null? (or package-names '())))
+  (if (and pretty? (null? package-names))
       `(span ((class "packages none")) "None")
       `(ul ((class "list-inline packages"))
         ,@(for/list ((p package-names)) `(li ,(package-link p))))))
@@ -455,9 +455,48 @@
   `(ul ((class "list-inline taglinks")) ,@(for/list ((tag (or tags '()))) `(li ,(tag-link tag)))))
 
 (define (utc->string utc)
-  (if utc
+  (if (and utc (not (zero? utc)))
       (string-append (date->string (seconds->date utc #f) #t) " (UTC)")
       "N/A"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Package hashtable getters.
+;; TODO factor this stuff out into a proper data structure
+
+;; Mandatory -- never #f
+(define (package-name pkg)                  (@ pkg name))
+
+;; Optional -- sometimes #f
+(define (package-build-failure-log pkg)     (@ pkg build failure-log))
+(define (package-build-success-log pkg)     (@ pkg build success-log))
+(define (package-build-dep-failure-log pkg) (@ pkg build dep-failure-log))
+(define (package-build-conflicts-log pkg)   (@ pkg build conflicts-log))
+(define (package-ring pkg)                  (@ pkg ring))
+(define (package-checksum-error pkg)        (@ pkg checksum-error))
+
+(define (package-readme-url pkg)
+  (@ (package-external-information (string->symbol (@ pkg name))) readme-url))
+
+(define (package-default-version pkg)
+  (@ (package-versions pkg) default))
+
+(define (package-locally-modified? pkg)
+  (@ pkg _LOCALLY_MODIFIED_))
+
+;; If absent, default values substituted
+(define (package-last-updated pkg)      (or (@ pkg last-updated) 0))
+(define (package-last-checked pkg)      (or (@ pkg last-checked) 0))
+(define (package-last-edit pkg)         (or (@ pkg last-edit) 0))
+(define (package-authors pkg)           (or (@ pkg authors) '()))
+(define (package-description pkg)       (or (@ pkg description) ""))
+(define (package-tags pkg)              (or (@ pkg tags) '()))
+(define (package-versions pkg)          (or (@ pkg versions) (hash)))
+(define (package-docs pkg)              (or (@ pkg build docs) '()))
+(define (package-conflicts pkg)         (or (@ pkg conflicts) '()))
+(define (package-dependencies pkg)      (or (@ pkg dependencies) '()))
+(define (package-modules pkg)           (or (@ pkg modules) '()))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (package-summary-table package-names)
   (define now (/ (current-inexact-milliseconds) 1000))
@@ -477,13 +516,13 @@
      ,@(for/list ((pkg (package-batch-detail package-names)))
          `(tr
            (td (span ((class "last-updated-negated") (style "display: none"))
-                     ,(~a (- (@ pkg last-updated))))
+                     ,(~a (- (package-last-updated pkg))))
                ,@(maybe-splice
-                  (< (- now (or (@ pkg last-updated) 0)) recent-seconds)
+                  (< (- now (package-last-updated pkg)) recent-seconds)
                   `(span ((class "label label-info")) "New")))
-           (td (h2 ,(package-link (@ pkg name)))
-               ,(authors-list (@ pkg authors)))
-           (td (p ,(or (@ pkg description) ""))
+           (td (h2 ,(package-link (package-name pkg)))
+               ,(authors-list (package-authors pkg)))
+           (td (p ,(package-description pkg))
                ,@(maybe-splice
                   (or (pair? (package-docs pkg)) (package-readme-url pkg))
                   `(div
@@ -495,25 +534,25 @@
                                       "README"))
                     ))
                ,@(maybe-splice
-                  (pair? (@ pkg tags))
+                  (pair? (package-tags pkg))
                   `(div
                     (span ((class "doctags-label")) "Tags: ")
-                    ,(tag-links (@ pkg tags)))))
+                    ,(tag-links (package-tags pkg)))))
            ,(cond
-             [(@ pkg build failure-log)
+             [(package-build-failure-log pkg)
               `(td ((class "build_red"))
-                ,(buildhost-link (@ pkg build failure-log) "fails"))]
-             [(and (@ pkg build success-log)
-                   (@ pkg build dep-failure-log))
+                ,(buildhost-link (package-build-failure-log pkg) "fails"))]
+             [(and (package-build-success-log pkg)
+                   (package-build-dep-failure-log pkg))
               `(td ((class "build_yellow"))
-                ,(buildhost-link (@ pkg build success-log)
+                ,(buildhost-link (package-build-success-log pkg)
                                  "succeeds")
                 " with "
-                ,(buildhost-link (@ pkg build dep-failure-log)
+                ,(buildhost-link (package-build-dep-failure-log pkg)
                                  "dependency problems"))]
-             [(@ pkg build success-log)
+             [(package-build-success-log pkg)
               `(td ((class "build_green"))
-                ,(buildhost-link (@ pkg build success-log) "succeeds"))]
+                ,(buildhost-link (package-build-success-log pkg) "succeeds"))]
              [else
               `(td)]))))))
 
@@ -566,15 +605,6 @@
                      `(span ((class ,(format "label label-~a" label-type)))
                        ,(glyphicon glyphicon-type) " " ,str))))
 
-(define (package-default-version pkg)
-  (hash-ref (or (@ pkg versions) (hash)) 'default (lambda () #f)))
-
-(define (package-docs pkg)
-  (or (@ pkg build docs) '()))
-
-(define (package-readme-url pkg)
-  (@ (package-external-information (string->symbol (@ pkg name))) readme-url))
-
 (define (package-page request package-name-str)
   (authentication-wrap
    #:request request
@@ -595,17 +625,17 @@
                          #:title-element ""
                          `(div ((class "jumbotron"))
                            (h1 ,(~a package-name))
-                           (p ,(or (@ pkg description) ""))
+                           (p ,(package-description pkg))
                            ,(cond
-                             [(@ pkg build failure-log)
-                              (build-status (@ pkg build failure-log)
+                             [(package-build-failure-log pkg)
+                              (build-status (package-build-failure-log pkg)
                                             "failed" "danger" "fire")]
-                             [(and (@ pkg build success-log)
-                                   (@ pkg build dep-failure-log))
-                              (build-status (@ pkg build dep-failure-log)
+                             [(and (package-build-success-log pkg)
+                                   (package-build-dep-failure-log pkg))
+                              (build-status (package-build-dep-failure-log pkg)
                                             "problems" "warning" "question-sign")]
-                             [(@ pkg build success-log)
-                              (build-status (@ pkg build success-log)
+                             [(package-build-success-log pkg)
+                              (build-status (package-build-success-log pkg)
                                             "ok" "success" "ok")]
                              [else
                               ""])
@@ -655,14 +685,14 @@
                                        ,(glyphicon 'link) " Code"))
 
                                 ,@(maybe-splice
-                                   (member (current-email) (or (@ pkg authors) '()))
+                                   (member (current-email) (package-authors pkg))
                                    " "
                                    `(a ((class "btn btn-info btn-lg")
                                         (href ,(named-url edit-package-page package-name-str)))
                                      ,(glyphicon 'edit) " Edit this package"))
                                 ))
 
-                         (if (@ pkg _LOCALLY_MODIFIED_)
+                         (if (package-locally-modified? pkg)
                              `(div ((class "alert alert-warning")
                                     (role "alert"))
                                ,(glyphicon 'exclamation-sign)
@@ -671,7 +701,7 @@
                                ,(utc->string (/ (next-fetch-deadline) 1000)) ".")
                              "")
 
-                         (if (@ pkg checksum-error)
+                         (if (package-checksum-error pkg)
                              `(div ((class "alert alert-danger")
                                     (role "alert"))
                                (span ((class "label label-danger"))
@@ -683,39 +713,43 @@
                          `(table ((class "package-details"))
                            (tr (th "Authors")
                                (td (div ((class "authors-detail"))
-                                        ,(authors-list #:gravatars? #t (@ pkg authors)))))
+                                        ,(authors-list #:gravatars? #t (package-authors pkg)))))
                            (tr (th "Documentation")
                                (td ,(doc-links (package-docs pkg))))
                            (tr (th "Tags")
-                               (td ,(tag-links (@ pkg tags))))
+                               (td ,(tag-links (package-tags pkg))))
                            (tr (th "Last updated")
-                               (td ,(utc->string (@ pkg last-updated))))
+                               (td ,(utc->string (package-last-updated pkg))))
                            (tr (th "Ring")
-                               (td ,(~a (or (@ pkg ring) "N/A"))))
+                               (td ,(~a (or (package-ring pkg) "N/A"))))
                            (tr (th "Conflicts")
-                               (td ,(package-links (@ pkg conflicts))))
+                               (td ,(package-links (package-conflicts pkg))))
                            (tr (th "Dependencies")
-                               (td ,(package-links (@ pkg dependencies))))
+                               (td ,(package-links (package-dependencies pkg))))
                            (tr (th "Most recent build results")
                                (td (ul ((class "build-results"))
                                        ,@(maybe-splice
-                                          (@ pkg build success-log)
+                                          (package-build-success-log pkg)
                                           `(li "Compiled successfully: "
-                                            ,(buildhost-link (@ pkg build success-log) "transcript")))
+                                            ,(buildhost-link (package-build-success-log pkg)
+                                                             "transcript")))
                                        ,@(maybe-splice
-                                          (@ pkg build failure-log)
+                                          (package-build-failure-log pkg)
                                           `(li "Compiled unsuccessfully: "
-                                            ,(buildhost-link (@ pkg build failure-log) "transcript")))
+                                            ,(buildhost-link (package-build-failure-log pkg)
+                                                             "transcript")))
                                        ,@(maybe-splice
-                                          (@ pkg build conflicts-log)
+                                          (package-build-conflicts-log pkg)
                                           `(li "Conflicts: "
-                                            ,(buildhost-link (@ pkg build conflicts-log) "details")))
+                                            ,(buildhost-link (package-build-conflicts-log pkg)
+                                                             "details")))
                                        ,@(maybe-splice
-                                          (@ pkg build dep-failure-log)
+                                          (package-build-dep-failure-log pkg)
                                           `(li "Dependency problems: "
-                                            ,(buildhost-link (@ pkg build dep-failure-log) "details")))
+                                            ,(buildhost-link (package-build-dep-failure-log pkg)
+                                                             "details")))
                                        )))
-                           ,@(let* ((vs (or (@ pkg versions) (hash)))
+                           ,@(let* ((vs (package-versions pkg))
                                     (empty-checksum "9f098dddde7f217879070816090c1e8e74d49432")
                                     (vs (for/hash (((k v) (in-hash vs))
                                                    #:when (not (equal? (@ v checksum)
@@ -736,12 +770,12 @@
                                                           ,(@ v source)))
                                                    (td ,(@ v checksum)))))))))
                            (tr (th "Last checked")
-                               (td ,(utc->string (@ pkg last-checked))))
+                               (td ,(utc->string (package-last-checked pkg))))
                            (tr (th "Last edited")
-                               (td ,(utc->string (@ pkg last-edit))))
+                               (td ,(utc->string (package-last-edit pkg))))
                            (tr (th "Modules")
                                (td (ul ((class "module-list"))
-                                       ,@(for/list ((mod (or (@ pkg modules) '())))
+                                       ,@(for/list ((mod (package-modules pkg)))
                                            (match-define (list kind path) mod)
                                            `(li ((class ,kind)) ,path)))))
                            ))])))
@@ -754,7 +788,7 @@
    (define package-name (string->symbol package-name-str))
    (define pkg (package-detail package-name))
    (cond
-    [(and pkg (not (member (current-email) (or (@ pkg authors) '()))))
+    [(and pkg (not (member (current-email) (package-authors pkg))))
      ;; Not ours. Show it instead.
      (bootstrap-redirect (view-package-url package-name))]
     [(not pkg)
@@ -769,10 +803,10 @@
      (package-form #f
                    (draft-package package-name-str
                                   package-name-str
-                                  (or (@ pkg description) "")
-                                  (@ pkg authors)
-                                  (@ pkg tags)
-                                  (for/list (((ver info) (in-hash (@ pkg versions))))
+                                  (package-description pkg)
+                                  (package-authors pkg)
+                                  (package-tags pkg)
+                                  (for/list (((ver info) (in-hash (package-versions pkg))))
                                     (list (symbol->string ver) (@ info source)))))])))
 
 (define (package-source-option source-type value label)
@@ -1018,11 +1052,15 @@
   (define old-pkg (package-detail (string->symbol old-name)))
 
   (define-values (added-tags removed-tags)
-    (added-and-removed (@ old-pkg tags) tags))
+    (added-and-removed (package-tags old-pkg) tags))
   (define-values (added-authors removed-authors)
-    (added-and-removed (or (@ old-pkg authors) (list (current-email))) authors))
+    (let ((old-authors (package-authors old-pkg)))
+      (added-and-removed (if (null? old-authors)
+                             (list (current-email))
+                             old-authors)
+                         authors)))
 
-  (define old-versions-map (or (@ old-pkg versions) (hash)))
+  (define old-versions-map (package-versions old-pkg))
   (define changed-versions
     (for/fold ((acc '())) ((v versions))
       (match-define (list version-str new-source) v)
