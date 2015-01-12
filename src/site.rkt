@@ -22,11 +22,19 @@
 (require "jsonp-client.rkt")
 (require reloadable)
 (require "daemon.rkt")
+(require "config.rkt")
 
-(define static-cached-directory "../static/cached")
-(define static-cached-urlprefix "/cached")
+(define static-cached-directory
+  (or (@ (config) static-cached-directory)
+      "../static/cached"))
 
-(define disable-cache? #f)
+(define static-cached-urlprefix
+  (or (@ (config) static-cached-urlprefix)
+      "/cached"))
+
+(define disable-cache?
+  (or (@ (config) disable-cache?)
+      #f))
 
 (define nav-index "Package Index")
 (define nav-search "Search")
@@ -44,11 +52,20 @@
                      ;;  "http://download.racket-lang.org/")
                      ))
 
-(define backend-baseurl "https://pkgd.racket-lang.org")
+(define backend-baseurl
+  (or (@ (config) backend-baseurl)
+      "https://pkgd.racket-lang.org"))
 
 (define default-empty-source-url "git://github.com//")
 (define COOKIE "pltsession")
-(define recent-seconds (* 2 24 60 60)) ;; two days
+
+(define recent-seconds
+  (or (@ (config) recent-seconds)
+      (* 2 24 60 60))) ;; two days
+
+(define pkg-build-baseurl
+  (or (@ (config) pkg-build-baseurl)
+      "http://pkg-build.racket-lang.org/"))
 
 (struct draft-package (old-name name description authors tags versions) #:prefab)
 
@@ -435,7 +452,7 @@
 
 (define (buildhost-link #:attributes [attributes '()] url-suffix label)
   `(a (,@attributes
-       (href ,(format "http://pkg-build.racket-lang.org/~a" url-suffix))) ,label))
+       (href ,(format "~a~a" pkg-build-baseurl url-suffix))) ,label))
 
 (define (authors-list authors #:gravatars? [gravatars? #f])
   `(ul ((class "authors")) ,@(for/list ((author authors))

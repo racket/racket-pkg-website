@@ -6,6 +6,53 @@ You will need to install the following Racket packages:
 
     raco pkg install reloadable
 
+## Configuration
+
+See the directory `configs/` for example configuration files. To
+select a configuration file, set the environment variable `CONFIG` to
+its base filename. For example, to select `configs/live.rkt`, set
+`CONFIG` to `live`. A good place to do this is in the `run-prelude`
+file; see the description of `run-prelude` below.
+
+If `CONFIG` is not set, it defaults to the short hostname of the
+machine (`hostname -s`).
+
+Within a configuration file, configuration details are to be given as
+a hashtable to `main`.
+
+Keys useful for deployment:
+
+ - *port*: number; default the value of the `SITE_PORT` environment
+   variable, if defined; otherwise, 8443.
+ - *ssl?*: boolean; default `#t`.
+ - *reloadable?*: boolean; `#t` if the `SITE_RELOADABLE` environment
+   variable is defined; otherwise, `#f`.
+ - *recent-seconds*: number, in seconds; default 172800. Packages
+   modified fewer than this many seconds ago are considered "recent",
+   and displayed as such in the UI.
+
+Keys useful for development:
+
+ - *package-index-url*: string; default
+   `http://pkgs.racket-lang.org/pkgs-all.json.gz`.
+ - *package-fetch-interval*; number, in seconds; default 300.
+ - *session-lifetime*: number, in seconds; default 604800.
+ - *static-cached-directory*: string; names a directory relative to
+   `src/` within which generated static HTML files are to be placed.
+   Must be writable by the user running the server.
+ - *static-cached-urlprefix*: string; absolute or relative URL,
+   prepended to relative URLs referring to generated static HTML files
+   placed in `static-cached-directory`.
+ - *disable-cache?*: boolean; default `#f`.
+ - *backend-baseurl*: string; default `https://pkgd.racket-lang.org`.
+   Must point to the backend package server API root, such that (for
+   example) `/jsonp/authenticate`, when appended to it, resolves to
+   the authentication call.
+ - *pkg-build-baseurl*: string; default
+   `http://pkg-build.racket-lang.org/`. Used to build URLs relative to
+   the package build host, for such as documentation links and build
+   reports.
+
 ## Local testing
 
 You will need some dummy SSL keys. Run `make keys` to produce some.
@@ -19,8 +66,8 @@ compiles the code and starts the server.
 ### Automatic code reloading
 
 If you would like to enable the automatic code-reloading feature, set
-the environment variable `SITE_RELOADABLE` to a non-empty string. (A
-good place to do that is in a `run-prelude` script; see below.)
+the environment variable `SITE_RELOADABLE` to a non-empty string or
+set the `reloadable?` configuration variable to `#t`.
 
 You must also delete any compiled code `.zo` files. Otherwise, the
 system will not be able to correctly replace modules while running.
@@ -44,7 +91,8 @@ logging of stdout/stderr.
 If the file `run-prelude` exists in the same directory as `run`, it
 will be dotted in before racket is invoked. I use this to update my
 `PATH` to include my locally-built racket `bin` directory, necessary
-because I don't have a system-wide racket.
+because I don't have a system-wide racket, and to select an
+appropriate `CONFIG` setting.
 
 On Debian, daemontools can be installed with `apt-get install
 daemontools daemontools-run`, and the services directory is
@@ -60,6 +108,17 @@ You can send signals to the running service by creating files in
 
  - creating `.restart-required` causes it to exit, to be restarted by
    daemontools.
+
+ - creating `.reload` causes an explicit code reload. Useful when
+   automatic code reloading is disabled.
+
+ - creating `.fetchindex` causes an immediate refetch of the package
+   index from the backend server.
+
+ - creating `.rerender` causes an immediate rerendering of all
+   generated static HTML files.
+
+See `src/signals.rkt` for details of the available signals.
 
 So long as `sudo chmod 0777 /etc/service/webservice/signals`, these
 are useful for non-root administrators to control the running service.

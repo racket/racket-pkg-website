@@ -10,10 +10,14 @@
          lookup-session)
 
 (require "randomness.rkt")
+(require "config.rkt")
 (require reloadable)
 
 (define current-session (make-parameter #f))
-(define session-lifetime (make-parameter (* 7 24 60 60 1000))) ;; one week in milliseconds
+(define session-lifetime
+  (* (or (hash-ref (config) 'session-lifetime-seconds #f)
+         (* 7 24 60 60)) ;; one week in seconds
+     1000)) ;; convert to milliseconds
 
 (struct session (key expiry email password) #:prefab)
 

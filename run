@@ -1,7 +1,19 @@
 #!/bin/sh
+
 if [ -f ./run-prelude ]; then . ./run-prelude; fi
-cd src
+
+if [ -z "$CONFIG" ]; then
+    CONFIG=$(hostname -s)
+    echo 'Environment variable CONFIG not defined; defaulting to "'"${CONFIG}"'"'
+fi
+
+if [ ! -f configs/${CONFIG}.rkt ]; then
+    echo "Config ${CONFIG} not found: config/${CONFIG}.rkt not readable"
+    exit 1
+fi
+
 PLTSTDERR=info
 export PLTSTDERR
 echo '============================================='
-exec racket main.rkt 2>&1
+cd src
+exec racket ../configs/${CONFIG}.rkt 2>&1

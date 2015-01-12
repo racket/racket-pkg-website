@@ -27,6 +27,7 @@
 (require web-server/private/gzip)
 (require net/url)
 (require reloadable)
+(require "config.rkt")
 (require "daemon.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -41,8 +42,15 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define package-index-url "http://pkgs.racket-lang.org/pkgs-all.json.gz")
-(define package-fetch-interval (* 300 1000)) ;; 300 seconds = 300,000 milliseconds = 5 minutes
+(define package-index-url
+  (or (@ (config) package-index-url)
+      "http://pkgs.racket-lang.org/pkgs-all.json.gz"))
+
+(define package-fetch-interval
+  (* (or (@ (config) package-fetch-interval)
+         300) ;; 300 seconds = 5 minutes
+     1000)) ;; convert to milliseconds
+
 (define base-bogus-timeout (* 5 1000)) ;; 5 seconds
 
 (struct package-manager-state (local-packages
