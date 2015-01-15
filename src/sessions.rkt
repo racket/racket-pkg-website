@@ -11,11 +11,12 @@
 
 (require "randomness.rkt")
 (require "config.rkt")
+(require "hash-utils.rkt")
 (require reloadable)
 
 (define current-session (make-parameter #f))
 (define session-lifetime
-  (* (or (hash-ref (config) 'session-lifetime-seconds #f)
+  (* (or (@ (config) session-lifetime-seconds)
          (* 7 24 60 60)) ;; one week in seconds
      1000)) ;; convert to milliseconds
 

@@ -1,8 +1,6 @@
 #lang racket/base
 
-(provide @
-         @ref
-         all-package-names
+(provide all-package-names
          all-tags
          all-formal-tags
          sorted-package-names
@@ -29,16 +27,7 @@
 (require reloadable)
 (require "config.rkt")
 (require "daemon.rkt")
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define-syntax @
-  (syntax-rules ()
-    [(_ v) v]
-    [(_ v k rest ...) (@ (@ref v 'k) rest ...)]))
-
-(define (@ref v k)
-  (and v (hash-ref v k (lambda () #f))))
+(require "hash-utils.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

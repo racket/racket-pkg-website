@@ -23,6 +23,7 @@
 (require reloadable)
 (require "daemon.rkt")
 (require "config.rkt")
+(require "hash-utils.rkt")
 
 (define static-cached-directory
   (or (@ (config) static-cached-directory)
