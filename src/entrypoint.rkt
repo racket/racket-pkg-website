@@ -8,27 +8,31 @@
 (require web-server/managers/lru)
 (require reloadable)
 (require "signals.rkt")
+(require "daemon.rkt")
 
 (define (start-service* #:port [port 8443]
                         #:ssl? [ssl? #t]
                         request-handler-function
                         on-continuation-expiry)
   (start-restart-signal-watcher)
-  (serve/servlet request-handler-function
-		 #:launch-browser? #f
-		 #:quit? #f
-		 #:listen-ip #f
-		 #:port port
-                 #:manager (make-threshold-LRU-manager
-                            on-continuation-expiry
-                            ;; This value is copied from web-server/servlet-env.rkt:
-                            (* 128 1024 1024))
-		 #:extra-files-paths (list (build-path (current-directory)
-						       "../static"))
-                 #:ssl? ssl?
-                 #:ssl-cert (and ssl? (build-path (current-directory) "../server-cert.pem"))
-                 #:ssl-key (and ssl? (build-path (current-directory) "../private-key.pem"))
-		 #:servlet-regexp #rx""))
+  ((daemonize-thunk
+    'main-web-server-thread
+    (lambda ()
+      (serve/servlet request-handler-function
+                     #:launch-browser? #f
+                     #:quit? #f
+                     #:listen-ip #f
+                     #:port port
+                     #:manager (make-threshold-LRU-manager
+                                on-continuation-expiry
+                                ;; This value is copied from web-server/servlet-env.rkt:
+                                (* 128 1024 1024))
+                     #:extra-files-paths (list (build-path (current-directory)
+                                                           "../static"))
+                     #:ssl? ssl?
+                     #:ssl-cert (and ssl? (build-path (current-directory) "../server-cert.pem"))
+                     #:ssl-key (and ssl? (build-path (current-directory) "../private-key.pem"))
+                     #:servlet-regexp #rx"")))))
 
 (define (start-service #:port [port 8443]
                        #:ssl? [ssl? #t]
