@@ -42,7 +42,7 @@
   (hash-set! (sessions)
              session-key
              (session session-key
-                      (+ (current-inexact-milliseconds) (session-lifetime))
+                      (+ (current-inexact-milliseconds) session-lifetime)
                       email
                       password))
   session-key)
@@ -54,7 +54,7 @@
   (define s (hash-ref (sessions) session-key (lambda () #f)))
   (and s
        (let ((s1 (struct-copy session s [expiry (+ (current-inexact-milliseconds)
-                                                   (session-lifetime))])))
+                                                   session-lifetime)])))
          (hash-set! (sessions) session-key s1)
          s1)))
 
