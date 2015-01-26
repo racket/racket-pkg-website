@@ -2,7 +2,6 @@
 
 (provide request-handler
          on-continuation-expiry
-         extra-files-paths
          rerender-all!)
 
 (require racket/runtime-path)
@@ -26,14 +25,11 @@
 (require "daemon.rkt")
 (require "config.rkt")
 (require "hash-utils.rkt")
-
-(define static-generated-directory
-  (or (@ (config) static-generated-directory)
-      "../static/cached"))
+(require "static.rkt")
 
 (define static-urlprefix
   (or (@ (config) static-urlprefix)
-      "/cached"))
+      ""))
 
 (define dynamic-urlprefix
   (or (@ (config) dynamic-urlprefix)
@@ -42,13 +38,6 @@
 (define disable-cache?
   (or (@ (config) disable-cache?)
       #f))
-
-(define-runtime-path here ".")
-(define (extra-files-paths)
-  (list (if (relative-path? static-generated-directory)
-            (build-path here static-generated-directory)
-            static-generated-directory)
-        (build-path here "../static")))
 
 (define nav-index "Package Index")
 (define nav-search "Search")
@@ -106,8 +95,6 @@
   (bootstrap-continuation-expiry-handler request))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define static-render (make-parameter #f))
 
 (define (named-url . args)
   (string-append dynamic-urlprefix (apply relative-named-url args)))
@@ -600,7 +587,7 @@
     (authentication-wrap
      #:request request
      (cond
-      [(and (use-cache?) (not (static-render)))
+      [(and (use-cache?) (not (rendering-static-page?)))
        ;; Redirect to static version
        (bootstrap-redirect (main-page-url))]
       [else
@@ -647,7 +634,7 @@
    (define pkg (package-detail package-name))
    (define default-version (package-default-version pkg))
    (cond
-    [(and (use-cache?) (not (static-render)))
+    [(and (use-cache?) (not (rendering-static-page?)))
      ;; Redirect to static version
      (bootstrap-redirect (view-package-url package-name))]
     [(not pkg)
@@ -1277,41 +1264,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (static-render! #:filename [base-filename #f]
-                        handler . named-url-args)
-  (local-require racket/promise)
-  (local-require racket/file)
-  (local-require web-server/private/servlet)
-  (local-require web-server/http/request-structs)
-  (define request-url (apply named-url handler named-url-args))
-  (log-info "Rendering static version of ~a~a"
-            request-url
-            (if base-filename
-                (format " to ~a" base-filename)
-                ""))
-  (define response
-    (parameterize ((static-render #t))
-      (call-with-continuation-barrier
-       (lambda ()
-         (call-with-continuation-prompt
-          (lambda ()
-            (apply handler
-                   (request #"GET"
-                            (string->url request-url)
-                            '()
-                            (delay '())
-                            #f
-                            "127.0.0.1"
-                            0
-                            "127.0.0.1")
-                   named-url-args))
-          servlet-prompt)))))
-  (define filename (format "~a~a" static-generated-directory (or base-filename request-url)))
-  (make-parent-directory* filename)
-  (call-with-output-file filename
-    (response-output response)
-    #:exists 'replace))
-
 ;; TODO: fold the collection of this information into the package
 ;; database itself.
 (define (update-external-package-information! package-name)
@@ -1342,7 +1294,7 @@
 (define (package-change-handler index-rerender-needed? pending-completions)
   (sync/timeout (and index-rerender-needed?
                      (lambda ()
-                       (static-render! main-page #:filename "/index.html")
+                       (static-render! relative-named-url main-page #:filename "/index.html")
                        ;; TODO: copy static files to target
                        (for ((completion-ch pending-completions))
                          (channel-put completion-ch (void)))
@@ -1357,12 +1309,16 @@
                                  (log-info "rerender-all!")
                                  (for ((p (all-package-names)))
                                    (update-external-package-information! p)
-                                   (static-render! package-page (symbol->string p)))
+                                   (static-render! relative-named-url
+                                                   package-page
+                                                   (symbol->string p)))
                                  (package-change-handler #t
                                                          pending-completions)]
                                 [(list 'package-changed completion-ch package-name)
                                  (update-external-package-information! package-name)
-                                 (static-render! package-page (symbol->string package-name))
+                                 (static-render! relative-named-url
+                                                 package-page
+                                                 (symbol->string package-name))
                                  (package-change-handler
                                   #t
                                   (if completion-ch

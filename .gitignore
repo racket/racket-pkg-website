@@ -8,4 +8,4 @@ compiled/
 *.[0-9]*
 server-cert.pem
 private-key.pem
-static/cached/
+var/
