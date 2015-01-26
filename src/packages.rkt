@@ -27,6 +27,7 @@
 (require reloadable)
 (require "config.rkt")
 (require "daemon.rkt")
+(require "rpc.rkt")
 (require "hash-utils.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
