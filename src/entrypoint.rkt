@@ -13,7 +13,8 @@
 (define (start-service* #:port [port 8443]
                         #:ssl? [ssl? #t]
                         request-handler-function
-                        on-continuation-expiry)
+                        on-continuation-expiry
+                        extra-files-paths)
   (start-restart-signal-watcher)
   ((daemonize-thunk
     'main-web-server-thread
@@ -27,8 +28,7 @@
                                 on-continuation-expiry
                                 ;; This value is copied from web-server/servlet-env.rkt:
                                 (* 128 1024 1024))
-                     #:extra-files-paths (list (build-path (current-directory)
-                                                           "../static"))
+                     #:extra-files-paths (extra-files-paths)
                      #:ssl? ssl?
                      #:ssl-cert (and ssl? (build-path (current-directory) "../server-cert.pem"))
                      #:ssl-key (and ssl? (build-path (current-directory) "../private-key.pem"))
@@ -38,11 +38,13 @@
                        #:ssl? [ssl? #t]
                        #:reloadable? [reloadable? #t]
                        request-handler-entry-point
-                       on-continuation-expiry-entry-point)
+                       on-continuation-expiry-entry-point
+                       extra-files-paths-entry-point)
   (when (not reloadable?)
     (set-reload-poll-interval! #f))
   (reload!)
   (start-service* #:port port
                   #:ssl? ssl?
                   (reloadable-entry-point->procedure request-handler-entry-point)
-                  (reloadable-entry-point->procedure on-continuation-expiry-entry-point)))
+                  (reloadable-entry-point->procedure on-continuation-expiry-entry-point)
+                  (reloadable-entry-point->procedure extra-files-paths-entry-point)))

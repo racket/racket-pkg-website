@@ -1,7 +1,8 @@
 #lang racket/base
 ;; Utilities for working with Twitter Bootstrap, http://getbootstrap.com/2.3.2/
 
-(provide bootstrap-project-name
+(provide bootstrap-static-urlprefix
+         bootstrap-project-name
          bootstrap-project-link
          bootstrap-navbar-header
          bootstrap-navigation
@@ -24,6 +25,7 @@
 (require "html-utils.rkt")
 (require "xexpr-utils.rkt")
 
+(define bootstrap-static-urlprefix (make-parameter ""))
 (define bootstrap-project-name (make-parameter "Project"))
 (define bootstrap-project-link (make-parameter "/"))
 (define bootstrap-navbar-header (make-parameter #f))
@@ -33,6 +35,9 @@
 (define bootstrap-page-stylesheets (make-parameter '()))
 (define bootstrap-page-scripts (make-parameter '()))
 (define bootstrap-cookies (make-parameter '()))
+
+(define (static str)
+  (string-append (bootstrap-static-urlprefix) str))
 
 ;; String [#:title-element XExpr] [#:code Integer] [#:message Bytes] [XExpr ...] -> Response
 (define (bootstrap-response title
@@ -52,9 +57,9 @@
 	   (meta ((http-equiv "X-UA-Compatible") (content "IE=edge")))
 	   (meta ((name "viewport") (content "width=device-width, initial-scale=1")))
 	   (title ,title)
-	   (link ((rel "stylesheet") (href "/bootstrap/css/bootstrap.min.css") (type "text/css")))
-	   (link ((rel "stylesheet") (href "/jquery-ui.min.css") (type "text/css")))
-           (link ((rel "stylesheet") (href "/style.css") (type "text/css")))
+	   (link ((rel "stylesheet") (href ,(static "/bootstrap/css/bootstrap.min.css")) (type "text/css")))
+	   (link ((rel "stylesheet") (href ,(static "/jquery-ui.min.css")) (type "text/css")))
+           (link ((rel "stylesheet") (href ,(static "/style.css")) (type "text/css")))
 	   ,@(for/list ((sheet (bootstrap-page-stylesheets)))
 	       `(link ((rel "stylesheet") (href ,sheet) (type "text/css")))))
      (body ,@(maybe-splice body-class `((class ,body-class)))
@@ -85,11 +90,11 @@
 	   ,title-element
 	   ,@body-contents)
 
-      (script ((type "text/javascript") (src "/jquery.min.js")))
-      (script ((type "text/javascript") (src "/jquery.tablesorter.min.js")))
-      (script ((type "text/javascript") (src "/jquery-ui.min.js")))
-      (script ((type "text/javascript") (src "/bootstrap/js/bootstrap.min.js")))
-      (script ((type "text/javascript") (src "/site.js")))
+      (script ((type "text/javascript") (src ,(static "/jquery.min.js"))))
+      (script ((type "text/javascript") (src ,(static "/jquery.tablesorter.min.js"))))
+      (script ((type "text/javascript") (src ,(static "/jquery-ui.min.js"))))
+      (script ((type "text/javascript") (src ,(static "/bootstrap/js/bootstrap.min.js"))))
+      (script ((type "text/javascript") (src ,(static "/site.js"))))
       ,@(for/list ((script (bootstrap-page-scripts)))
           `(script ((type "text/javascript") (src ,script))))))))
 

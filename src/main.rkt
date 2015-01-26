@@ -15,4 +15,5 @@
                  #:ssl? (hash-ref config 'ssl? (lambda () #t))
                  #:reloadable? (hash-ref config 'reloadable? (lambda () (getenv "SITE_RELOADABLE")))
                  (make-reloadable-entry-point 'request-handler "site.rkt")
-                 (make-reloadable-entry-point 'on-continuation-expiry "site.rkt")))
+                 (make-reloadable-entry-point 'on-continuation-expiry "site.rkt")
+                 (make-reloadable-entry-point 'extra-files-paths "site.rkt")))

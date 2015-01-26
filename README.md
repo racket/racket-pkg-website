@@ -37,12 +37,14 @@ Keys useful for development:
    `http://pkgs.racket-lang.org/pkgs-all.json.gz`.
  - *package-fetch-interval*; number, in seconds; default 300.
  - *session-lifetime*: number, in seconds; default 604800.
- - *static-cached-directory*: string; names a directory relative to
+ - *static-generated-directory*: string; names a directory relative to
    `src/` within which generated static HTML files are to be placed.
    Must be writable by the user running the server.
- - *static-cached-urlprefix*: string; absolute or relative URL,
-   prepended to relative URLs referring to generated static HTML files
-   placed in `static-cached-directory`.
+ - *static-urlprefix*: string; absolute or relative URL, prepended to
+   relative URLs referring to static HTML files placed in
+   `static-generated-directory`.
+ - *dynamic-urlprefix*: string; absolute or relative URL, prepended to
+   URLs targetting dynamic content on the site.
  - *disable-cache?*: boolean; default `#f`.
  - *backend-baseurl*: string; default `https://pkgd.racket-lang.org`.
    Must point to the backend package server API root, such that (for

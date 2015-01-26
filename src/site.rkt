@@ -2,8 +2,10 @@
 
 (provide request-handler
          on-continuation-expiry
+         extra-files-paths
          rerender-all!)
 
+(require racket/runtime-path)
 (require racket/set)
 (require racket/match)
 (require racket/format)
@@ -25,17 +27,28 @@
 (require "config.rkt")
 (require "hash-utils.rkt")
 
-(define static-cached-directory
-  (or (@ (config) static-cached-directory)
+(define static-generated-directory
+  (or (@ (config) static-generated-directory)
       "../static/cached"))
 
-(define static-cached-urlprefix
-  (or (@ (config) static-cached-urlprefix)
+(define static-urlprefix
+  (or (@ (config) static-urlprefix)
       "/cached"))
+
+(define dynamic-urlprefix
+  (or (@ (config) dynamic-urlprefix)
+      ""))
 
 (define disable-cache?
   (or (@ (config) disable-cache?)
       #f))
+
+(define-runtime-path here ".")
+(define (extra-files-paths)
+  (list (if (relative-path? static-generated-directory)
+            (build-path here static-generated-directory)
+            static-generated-directory)
+        (build-path here "../static")))
 
 (define nav-index "Package Index")
 (define nav-search "Search")
@@ -72,7 +85,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define-values (request-handler named-url)
+(define-values (request-handler relative-named-url)
   (dispatch-rules
    [("index") main-page]
    [("") main-page]
@@ -96,6 +109,9 @@
 
 (define static-render (make-parameter #f))
 
+(define (named-url . args)
+  (string-append dynamic-urlprefix (apply relative-named-url args)))
+
 (define-syntax-rule (authentication-wrap #:request request body ...)
   (authentication-wrap* #f request (lambda () body ...)))
 
@@ -105,6 +121,7 @@
 (define-syntax-rule (with-site-config body ...)
   (parameterize ((bootstrap-navbar-header navbar-header)
                  (bootstrap-navigation navigation)
+                 (bootstrap-static-urlprefix static-urlprefix)
                  (jsonp-baseurl backend-baseurl))
     body ...))
 
@@ -413,13 +430,13 @@
 
 (define (main-page-url)
   (if (use-cache?)
-      (format "~a/index.html" static-cached-urlprefix)
+      (format "~a/index.html" static-urlprefix)
       (named-url main-page)))
 
 (define (view-package-url package-name)
   (define package-name-str (~a package-name))
   (if (use-cache?)
-      (format "~a~a" static-cached-urlprefix (named-url package-page package-name-str))
+      (format "~a~a" static-urlprefix (named-url package-page package-name-str))
       (named-url package-page package-name-str)))
 
 (define (package-link package-name)
@@ -1289,7 +1306,7 @@
                             "127.0.0.1")
                    named-url-args))
           servlet-prompt)))))
-  (define filename (format "~a~a" static-cached-directory (or base-filename request-url)))
+  (define filename (format "~a~a" static-generated-directory (or base-filename request-url)))
   (make-parent-directory* filename)
   (call-with-output-file filename
     (response-output response)
