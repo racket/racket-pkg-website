@@ -18,6 +18,7 @@
 (require "gravatar.rkt")
 (require "bootstrap.rkt")
 (require "html-utils.rkt")
+(require "build-server.rkt")
 (require "packages.rkt")
 (require "sessions.rkt")
 (require "jsonp-client.rkt")
@@ -58,10 +59,6 @@
 (define recent-seconds
   (or (@ (config) recent-seconds)
       (* 2 24 60 60))) ;; two days
-
-(define pkg-build-baseurl
-  (or (@ (config) pkg-build-baseurl)
-      "http://pkg-build.racket-lang.org/"))
 
 (struct draft-package (old-name name description authors tags versions) #:prefab)
 
