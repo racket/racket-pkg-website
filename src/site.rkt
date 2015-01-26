@@ -69,7 +69,6 @@
 
 (define-values (request-handler relative-named-url)
   (dispatch-rules
-   [("index") main-page]
    [("") main-page]
    [("search") search-page]
    [("package" (string-arg)) package-page]
@@ -106,7 +105,7 @@
                                          ;;       " Download")
                                          ;;  "http://download.racket-lang.org/")
                                          ))
-                 (bootstrap-static-urlprefix static-urlprefix)
+                 (bootstrap-static-urlprefix (if (use-cache?) static-urlprefix ""))
                  (jsonp-baseurl backend-baseurl))
     body ...))
 
