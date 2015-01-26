@@ -413,7 +413,7 @@
 
 (define (main-page-url)
   (if (use-cache?)
-      (format "~a~a" static-cached-urlprefix (named-url main-page))
+      (format "~a/index.html" static-cached-urlprefix)
       (named-url main-page)))
 
 (define (view-package-url package-name)
@@ -1260,13 +1260,18 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (static-render! handler . named-url-args)
+(define (static-render! #:filename [base-filename #f]
+                        handler . named-url-args)
   (local-require racket/promise)
   (local-require racket/file)
   (local-require web-server/private/servlet)
   (local-require web-server/http/request-structs)
   (define request-url (apply named-url handler named-url-args))
-  (log-info "Rendering static version of ~a" request-url)
+  (log-info "Rendering static version of ~a~a"
+            request-url
+            (if base-filename
+                (format " to ~a" base-filename)
+                ""))
   (define response
     (parameterize ((static-render #t))
       (call-with-continuation-barrier
@@ -1284,7 +1289,7 @@
                             "127.0.0.1")
                    named-url-args))
           servlet-prompt)))))
-  (define filename (format "~a~a" static-cached-directory request-url))
+  (define filename (format "~a~a" static-cached-directory (or base-filename request-url)))
   (make-parent-directory* filename)
   (call-with-output-file filename
     (response-output response)
@@ -1320,7 +1325,8 @@
 (define (package-change-handler index-rerender-needed? pending-completions)
   (sync/timeout (and index-rerender-needed?
                      (lambda ()
-                       (static-render! main-page)
+                       (static-render! main-page #:filename "/index.html")
+                       ;; TODO: copy static files to target
                        (for ((completion-ch pending-completions))
                          (channel-put completion-ch (void)))
                        (package-change-handler #f '())))
