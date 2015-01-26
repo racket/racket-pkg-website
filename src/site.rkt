@@ -1341,8 +1341,7 @@
                                  (for ((p (all-package-names)))
                                    (update-external-package-information! p)
                                    (static-render! package-page (symbol->string p)))
-                                 (static-render! main-page)
-                                 (package-change-handler index-rerender-needed?
+                                 (package-change-handler #t
                                                          pending-completions)]
                                 [(list 'package-changed completion-ch package-name)
                                  (update-external-package-information! package-name)
