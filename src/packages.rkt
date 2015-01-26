@@ -163,57 +163,52 @@
                                        all-formal-tags
                                        next-fetch-deadline
                                        next-bogus-timeout) state)
-  (match (sync (handle-evt (thread-receive-evt)
-                           (lambda (_) (thread-receive)))
-               (handle-evt (alarm-evt next-fetch-deadline)
-                           (lambda (_) (list #f 'refresh-packages!))))
-    [(cons ch request)
-     (define-values (reply new-state)
-       (match request
-         [(list 'next-fetch-deadline)
-          (values next-fetch-deadline state)]
-         [(list 'refresh-packages!)
-          (values (void) (asynchronously-fetch-remote-packages state))]
-         [(list 'refresh-packages! (? hash? raw))
-          (values (void)
-                  (struct-copy package-manager-state (refresh-packages raw state)
-                               [next-bogus-timeout base-bogus-timeout]))]
-         [(list 'refresh-packages! _)
-          (log-info "Will retry in ~a ms" next-bogus-timeout)
-          (values (void)
-                  (struct-copy package-manager-state state
-                               [next-fetch-deadline
-                                (+ (current-inexact-milliseconds)
-                                   next-bogus-timeout)]
-                               [next-bogus-timeout
-                                (min package-fetch-interval
-                                     (* next-bogus-timeout 1.618))]))]
-         [(list 'packages)
-          (values local-packages state)]
-         [(list 'all-package-names)
-          (values (hash-keys local-packages) state)]
-         [(list 'all-tags)
-          (values all-tags state)]
-         [(list 'all-formal-tags)
-          (values all-formal-tags state)]
-         [(list 'package-detail name)
-          (values (lookup-package name local-packages) state)]
-         [(list 'package-batch-detail names)
-          (values (for/list ((name names)) (lookup-package name local-packages)) state)]
-         [(list 'external-information name)
-          (values (hash-ref external-information name (lambda () (hash))) state)]
-         [(list 'set-external-information! name info)
-          (values (void) (struct-copy package-manager-state state
-                                      [external-information
-                                       (if info
-                                           (hash-set external-information name info)
-                                           (hash-remove external-information name))]))]
-         [(list 'replace-package! completion-ch old-pkg new-pkg)
-          (values (void) (replace-package completion-ch old-pkg new-pkg state))]
-         [(list 'delete-package! completion-ch package-name)
-          (values (void) (delete-package completion-ch package-name state))]))
-     (when ch (channel-put ch reply))
-     (package-manager-main new-state)]))
+  (package-manager-main
+   (rpc-handler (sync (rpc-request-evt)
+                      (handle-evt (alarm-evt next-fetch-deadline)
+                                  (lambda (_) (list #f 'refresh-packages!))))
+     [('next-fetch-deadline)
+      (values next-fetch-deadline state)]
+     [('refresh-packages!)
+      (values (void) (asynchronously-fetch-remote-packages state))]
+     [('refresh-packages! (? hash? raw))
+      (values (void)
+              (struct-copy package-manager-state (refresh-packages raw state)
+                           [next-bogus-timeout base-bogus-timeout]))]
+     [('refresh-packages! _)
+      (log-info "Will retry in ~a ms" next-bogus-timeout)
+      (values (void)
+              (struct-copy package-manager-state state
+                           [next-fetch-deadline
+                            (+ (current-inexact-milliseconds)
+                               next-bogus-timeout)]
+                           [next-bogus-timeout
+                            (min package-fetch-interval
+                                 (* next-bogus-timeout 1.618))]))]
+     [('packages)
+      (values local-packages state)]
+     [('all-package-names)
+      (values (hash-keys local-packages) state)]
+     [('all-tags)
+      (values all-tags state)]
+     [('all-formal-tags)
+      (values all-formal-tags state)]
+     [('package-detail name)
+      (values (lookup-package name local-packages) state)]
+     [('package-batch-detail names)
+      (values (for/list ((name names)) (lookup-package name local-packages)) state)]
+     [('external-information name)
+      (values (hash-ref external-information name (lambda () (hash))) state)]
+     [('set-external-information! name info)
+      (values (void) (struct-copy package-manager-state state
+                                  [external-information
+                                   (if info
+                                       (hash-set external-information name info)
+                                       (hash-remove external-information name))]))]
+     [('replace-package! completion-ch old-pkg new-pkg)
+      (values (void) (replace-package completion-ch old-pkg new-pkg state))]
+     [('delete-package! completion-ch package-name)
+      (values (void) (delete-package completion-ch package-name state))])))
 
 (define package-manager-thread
   (make-persistent-state 'package-manager-thread
@@ -234,10 +229,7 @@
         (thread-send (package-change-handler-thread)
                      (list 'package-changed completion-ch package-name)))))
 
-(define (manager-rpc . request)
-  (define ch (make-channel))
-  (thread-send (package-manager-thread) (cons ch request))
-  (channel-get ch))
+(define (manager-rpc . request) (apply rpc-call (package-manager-thread) request))
 
 (define (all-package-names) (manager-rpc 'all-package-names))
 (define (all-tags) (manager-rpc 'all-tags))
