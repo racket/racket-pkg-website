@@ -44,16 +44,9 @@
 
 (define navbar-header
   `(a ((href "http://www.racket-lang.org/"))
-    (img ((src "/logo-and-text.png")
+    (img ((src ,(string-append static-urlprefix "/logo-and-text.png"))
           (height "60")
           (alt "Racket Package Index")))))
-
-(define navigation `((,nav-index "/")
-                     (,nav-search "/search")
-                     ;; ((div ,(glyphicon 'download-alt)
-                     ;;       " Download")
-                     ;;  "http://download.racket-lang.org/")
-                     ))
 
 (define backend-baseurl
   (or (@ (config) backend-baseurl)
@@ -107,7 +100,12 @@
 
 (define-syntax-rule (with-site-config body ...)
   (parameterize ((bootstrap-navbar-header navbar-header)
-                 (bootstrap-navigation navigation)
+                 (bootstrap-navigation `((,nav-index ,(main-page-url))
+                                         (,nav-search ,(named-url search-page))
+                                         ;; ((div ,(glyphicon 'download-alt)
+                                         ;;       " Download")
+                                         ;;  "http://download.racket-lang.org/")
+                                         ))
                  (bootstrap-static-urlprefix static-urlprefix)
                  (jsonp-baseurl backend-baseurl))
     body ...))
@@ -423,7 +421,7 @@
 (define (view-package-url package-name)
   (define package-name-str (~a package-name))
   (if (use-cache?)
-      (format "~a~a" static-urlprefix (named-url package-page package-name-str))
+      (format "~a~a" static-urlprefix (relative-named-url package-page package-name-str))
       (named-url package-page package-name-str)))
 
 (define (package-link package-name)
@@ -1295,7 +1293,7 @@
   (sync/timeout (and index-rerender-needed?
                      (lambda ()
                        (static-render! relative-named-url main-page #:filename "/index.html")
-                       ;; TODO: copy static files to target
+                       (finish-static-update!)
                        (for ((completion-ch pending-completions))
                          (channel-put completion-ch (void)))
                        (package-change-handler #f '())))

@@ -3,8 +3,10 @@
 (provide static-generated-directory
          rendering-static-page?
          static-render!
+         finish-static-update!
          extra-files-paths)
 
+(require racket/system)
 (require racket/promise)
 (require racket/file)
 (require web-server/private/servlet)
@@ -17,6 +19,17 @@
 (define static-generated-directory
   (config-path (or (@ (config) static-generated-directory)
                    (build-path (var-path) "generated-htdocs"))))
+
+(define static-content-target-directory
+  (let ((p (@ (config) static-content-target-directory)))
+    (and p (config-path p))))
+
+(define static-content-update-hook (@ (config) static-content-update-hook))
+
+(define extra-static-content-directories
+  (map config-path
+       (or (@ (config) extra-static-content-directories)
+           '())))
 
 (define rendering-static-page? (make-parameter #f))
 
@@ -60,6 +73,24 @@
                  (response-code response)
                  (cons handler named-url-args))]))
 
+(define (finish-static-update!)
+  (when static-content-target-directory
+    (make-directory* static-content-target-directory)
+    (define command
+      (append (list (path->string (find-executable-path "rsync"))
+                    "-a"
+                    "--delete"
+                    (path->string (build-path static-generated-directory "."))
+                    (path->string (build-path (config-path "../static") ".")))
+              (for/list [(dir extra-static-content-directories)]
+                (path->string (build-path dir ".")))
+              (list (path->string (build-path static-content-target-directory ".")))))
+    (log-info "Executing rsync to replicate static content; argv: ~v" command)
+    (apply system* command))
+  (when static-content-update-hook
+    (system static-content-update-hook)))
+
 (define (extra-files-paths)
-  (list (config-path static-generated-directory)
-        (config-path "../static")))
+  (list* static-generated-directory
+         (config-path "../static")
+         extra-static-content-directories))

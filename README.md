@@ -30,6 +30,19 @@ Keys useful for deployment:
  - *recent-seconds*: number, in seconds; default 172800. Packages
    modified fewer than this many seconds ago are considered "recent",
    and displayed as such in the UI.
+ - *static-content-target-directory*: either `#f` or a string denoting
+   a path to a folder to which the static content of the site will be
+   copied.
+ - *static-content-update-hook*: either `#f`, or a string containing a
+   shell command to invoke every time files are updated in
+   *static-content-target-directory*.
+ - *dynamic-urlprefix*: string; absolute or relative URL, prepended to
+   URLs targetting dynamic content on the site.
+ - *static-urlprefix*: string; absolute or relative URL, prepended to
+   relative URLs referring to static HTML files placed in
+   `static-generated-directory`.
+ - *extra-static-content-directories*: list of strings; defaults to
+   the empty list.
 
 Keys useful for development:
 
@@ -40,11 +53,6 @@ Keys useful for development:
  - *static-generated-directory*: string; names a directory relative to
    `src/` within which generated static HTML files are to be placed.
    Must be writable by the user running the server.
- - *static-urlprefix*: string; absolute or relative URL, prepended to
-   relative URLs referring to static HTML files placed in
-   `static-generated-directory`.
- - *dynamic-urlprefix*: string; absolute or relative URL, prepended to
-   URLs targetting dynamic content on the site.
  - *disable-cache?*: boolean; default `#f`.
  - *backend-baseurl*: string; default `https://pkgd.racket-lang.org`.
    Must point to the backend package server API root, such that (for
@@ -82,6 +90,31 @@ and make sure to run `make clean` beforehand, if you've run `make
 compile` at all previously.
 
 ## Deployment
+
+### Static Content
+
+The site can be set up to run either
+
+ 0. entirely dynamically, generating package pages on-the-fly for each
+    request;
+ 0. both statically and dynamically, with HTML renderings of package
+    pages stored on and served from disk like other static resources
+    such as Javascript and CSS; or
+ 0. both statically and dynamically, as the previous option, but
+    additionally replicating both static and generated content to a
+    local file-system directory and invoking an optional update hook
+    that can be used to further replicate the content to S3 or a
+    remote host.
+
+The default is mixed static/dynamic, with no additional replication.
+
+For a fully dynamic site, set configuration variable `disable-cache?`
+to `#t`.
+
+To enable replication, set configuration variable
+`static-content-target-directory` to a non-`#f` value, and optionally
+set `static-content-update-hook` to a string containing a shell
+command to execute every time the static content is updated.
 
 ### Supervision
 
