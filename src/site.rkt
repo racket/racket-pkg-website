@@ -105,7 +105,7 @@
                                          ;;       " Download")
                                          ;;  "http://download.racket-lang.org/")
                                          ))
-                 (bootstrap-static-urlprefix (if (use-cache?) static-urlprefix ""))
+                 (bootstrap-static-urlprefix (if (rendering-static-page?) static-urlprefix ""))
                  (jsonp-baseurl backend-baseurl))
     body ...))
 
@@ -583,37 +583,32 @@
     (define package-name-list (package-search "" '((main-distribution #f))))
     (authentication-wrap
      #:request request
-     (cond
-      [(and (use-cache?) (not (rendering-static-page?)))
-       ;; Redirect to static version
-       (bootstrap-redirect (main-page-url))]
-      [else
-       (bootstrap-response "Racket Package Index"
-                           #:title-element ""
-                           #:body-class "main-page"
-                           `(div ((class "jumbotron"))
-                             (h1 "Racket Packages")
-                             (p "These are the packages in the official "
-                                (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
-                                   "package catalog") ".")
-                             (p (a ((href "http://docs.racket-lang.org/pkg/cmdline.html"))
-                                   (kbd "raco pkg install " (var "package-name")))
-                                " installs a package.")
-                             (p "You can "
-                                (a ((id "create-package-link")
-                                    (href ,(named-url edit-package-page)))
-                                   (span ((class "label label-success"))
-                                         ,(glyphicon 'plus-sign)
-                                         " add your own"))
-                                " packages to the index."))
-                           `(div ((id "search-box"))
-                             (form ((role "form")
-                                    (action ,(named-url search-page)))
-                                   ,(text-input "q" #:placeholder "Search packages")))
-                           `(div
-                             (p ((class "package-count"))
-                                ,(format "~a packages" (length package-name-list)))
-                             ,(package-summary-table package-name-list)))]))))
+     (bootstrap-response "Racket Package Index"
+                         #:title-element ""
+                         #:body-class "main-page"
+                         `(div ((class "jumbotron"))
+                           (h1 "Racket Packages")
+                           (p "These are the packages in the official "
+                              (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
+                                 "package catalog") ".")
+                           (p (a ((href "http://docs.racket-lang.org/pkg/cmdline.html"))
+                                 (kbd "raco pkg install " (var "package-name")))
+                              " installs a package.")
+                           (p "You can "
+                              (a ((id "create-package-link")
+                                  (href ,(named-url edit-package-page)))
+                                 (span ((class "label label-success"))
+                                       ,(glyphicon 'plus-sign)
+                                       " add your own"))
+                              " packages to the index."))
+                         `(div ((id "search-box"))
+                           (form ((role "form")
+                                  (action ,(named-url search-page)))
+                                 ,(text-input "q" #:placeholder "Search packages")))
+                         `(div
+                           (p ((class "package-count"))
+                              ,(format "~a packages" (length package-name-list)))
+                           ,(package-summary-table package-name-list))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -630,174 +625,169 @@
    (define package-name (string->symbol package-name-str))
    (define pkg (package-detail package-name))
    (define default-version (package-default-version pkg))
-   (cond
-    [(and (use-cache?) (not (rendering-static-page?)))
-     ;; Redirect to static version
-     (bootstrap-redirect (view-package-url package-name))]
-    [(not pkg)
-     (bootstrap-response #:code 404
-                         #:message #"No such package"
-                         "Package not found"
-                         `(div "The package " (code ,package-name-str) " does not exist."))]
-    [else
-     (bootstrap-response (~a package-name)
-                         #:title-element ""
-                         `(div ((class "jumbotron"))
-                           (h1 ,(~a package-name))
-                           (p ,(package-description pkg))
-                           ,(cond
-                             [(package-build-failure-log pkg)
-                              (build-status (package-build-failure-log pkg)
-                                            "failed" "danger" "fire")]
-                             [(and (package-build-success-log pkg)
-                                   (package-build-dep-failure-log pkg))
-                              (build-status (package-build-dep-failure-log pkg)
-                                            "problems" "warning" "question-sign")]
-                             [(package-build-success-log pkg)
-                              (build-status (package-build-success-log pkg)
-                                            "ok" "success" "ok")]
-                             [else
-                              ""])
-                           (div ((class "dropdown"))
-                                ,@(let ((docs (package-docs pkg)))
-                                    (match docs
-                                      [(list)
-                                       `()]
-                                      [(list doc)
-                                       (define-values (n u) (doc-destruct doc))
-                                       (list (buildhost-link
-                                              #:attributes `((class "btn btn-success btn-lg"))
-                                              u
-                                              `(span ,(glyphicon 'file) " Documentation")))]
-                                      [_
-                                       `((button ((class "btn btn-success btn-lg dropdown-toggle")
-                                                  (data-toggle "dropdown"))
-                                                 ,(glyphicon 'file)
-                                                 " Documentation "
-                                                 (span ((class "caret"))))
-                                         (ul ((class "dropdown-menu")
-                                              (role "menu"))
-                                             ,@(for/list ((doc docs)) `(li ,(doc-link doc)))))]))
+   (if (not pkg)
+       (bootstrap-response #:code 404
+                           #:message #"No such package"
+                           "Package not found"
+                           `(div "The package " (code ,package-name-str) " does not exist."))
+       (bootstrap-response (~a package-name)
+                           #:title-element ""
+                           `(div ((class "jumbotron"))
+                             (h1 ,(~a package-name))
+                             (p ,(package-description pkg))
+                             ,(cond
+                               [(package-build-failure-log pkg)
+                                (build-status (package-build-failure-log pkg)
+                                              "failed" "danger" "fire")]
+                               [(and (package-build-success-log pkg)
+                                     (package-build-dep-failure-log pkg))
+                                (build-status (package-build-dep-failure-log pkg)
+                                              "problems" "warning" "question-sign")]
+                               [(package-build-success-log pkg)
+                                (build-status (package-build-success-log pkg)
+                                              "ok" "success" "ok")]
+                               [else
+                                ""])
+                             (div ((class "dropdown"))
+                                  ,@(let ((docs (package-docs pkg)))
+                                      (match docs
+                                        [(list)
+                                         `()]
+                                        [(list doc)
+                                         (define-values (n u) (doc-destruct doc))
+                                         (list (buildhost-link
+                                                #:attributes `((class "btn btn-success btn-lg"))
+                                                u
+                                                `(span ,(glyphicon 'file) " Documentation")))]
+                                        [_
+                                         `((button ((class "btn btn-success btn-lg dropdown-toggle")
+                                                    (data-toggle "dropdown"))
+                                                   ,(glyphicon 'file)
+                                                   " Documentation "
+                                                   (span ((class "caret"))))
+                                           (ul ((class "dropdown-menu")
+                                                (role "menu"))
+                                               ,@(for/list ((doc docs)) `(li ,(doc-link doc)))))]))
 
-                                " "
-                                ,@(maybe-splice
-                                   (package-readme-url pkg)
-                                   `(a ((class "btn btn-info btn-lg")
-                                        (href ,(package-readme-url pkg)))
-                                     ,(glyphicon 'eye-open)
-                                     " README"))
+                                  " "
+                                  ,@(maybe-splice
+                                     (package-readme-url pkg)
+                                     `(a ((class "btn btn-info btn-lg")
+                                          (href ,(package-readme-url pkg)))
+                                       ,(glyphicon 'eye-open)
+                                       " README"))
 
-                                ;; Heuristic guess as to whether we should present a "browse"
-                                ;; link or a "download" link.
-                                " "
-                                ,(if (equal? (@ default-version source)
-                                             (@ default-version source_url))
-                                     `(a ((class "btn btn-default btn-lg")
-                                          (href ,(@ default-version source_url)))
-                                       ,(glyphicon 'download) " Download"
-                                       ;; ,(if (regexp-match? "(?i:\\.zip$)" (or (@ default-version source_url) ""))
-                                       ;;      " Zip file"
-                                       ;;      " Download")
-                                       )
-                                     `(a ((class "btn btn-default btn-lg")
-                                          (href ,(@ default-version source_url)))
-                                       ,(glyphicon 'link) " Code"))
+                                  ;; Heuristic guess as to whether we should present a "browse"
+                                  ;; link or a "download" link.
+                                  " "
+                                  ,(if (equal? (@ default-version source)
+                                               (@ default-version source_url))
+                                       `(a ((class "btn btn-default btn-lg")
+                                            (href ,(@ default-version source_url)))
+                                         ,(glyphicon 'download) " Download"
+                                         ;; ,(if (regexp-match? "(?i:\\.zip$)" (or (@ default-version source_url) ""))
+                                         ;;      " Zip file"
+                                         ;;      " Download")
+                                         )
+                                       `(a ((class "btn btn-default btn-lg")
+                                            (href ,(@ default-version source_url)))
+                                         ,(glyphicon 'link) " Code"))
 
-                                ,@(maybe-splice
-                                   (member (current-email) (package-authors pkg))
-                                   " "
-                                   `(a ((class "btn btn-info btn-lg")
-                                        (href ,(named-url edit-package-page package-name-str)))
-                                     ,(glyphicon 'edit) " Edit this package"))
-                                ))
+                                  ,@(maybe-splice
+                                     (member (current-email) (package-authors pkg))
+                                     " "
+                                     `(a ((class "btn btn-info btn-lg")
+                                          (href ,(named-url edit-package-page package-name-str)))
+                                       ,(glyphicon 'edit) " Edit this package"))
+                                  ))
 
-                         (if (package-locally-modified? pkg)
-                             `(div ((class "alert alert-warning")
-                                    (role "alert"))
-                               ,(glyphicon 'exclamation-sign)
-                               " This package has been modified since the package index was last rebuilt."
-                               " The next index refresh is scheduled for "
-                               ,(utc->string (/ (next-fetch-deadline) 1000)) ".")
-                             "")
+                           (if (package-locally-modified? pkg)
+                               `(div ((class "alert alert-warning")
+                                      (role "alert"))
+                                 ,(glyphicon 'exclamation-sign)
+                                 " This package has been modified since the package index was last rebuilt."
+                                 " The next index refresh is scheduled for "
+                                 ,(utc->string (/ (next-fetch-deadline) 1000)) ".")
+                               "")
 
-                         (if (package-checksum-error pkg)
-                             `(div ((class "alert alert-danger")
-                                    (role "alert"))
-                               (span ((class "label label-danger"))
-                                     "Checksum error")
-                               " The package checksum does not match"
-                               " the package source code.")
-                             "")
+                           (if (package-checksum-error pkg)
+                               `(div ((class "alert alert-danger")
+                                      (role "alert"))
+                                 (span ((class "label label-danger"))
+                                       "Checksum error")
+                                 " The package checksum does not match"
+                                 " the package source code.")
+                               "")
 
-                         `(table ((class "package-details"))
-                           (tr (th "Authors")
-                               (td (div ((class "authors-detail"))
-                                        ,(authors-list #:gravatars? #t (package-authors pkg)))))
-                           (tr (th "Documentation")
-                               (td ,(doc-links (package-docs pkg))))
-                           (tr (th "Tags")
-                               (td ,(tag-links (package-tags pkg))))
-                           (tr (th "Last updated")
-                               (td ,(utc->string (package-last-updated pkg))))
-                           (tr (th "Ring")
-                               (td ,(~a (or (package-ring pkg) "N/A"))))
-                           (tr (th "Conflicts")
-                               (td ,(package-links (package-conflicts pkg))))
-                           (tr (th "Dependencies")
-                               (td ,(package-links (package-dependencies pkg))))
-                           (tr (th "Most recent build results")
-                               (td (ul ((class "build-results"))
-                                       ,@(maybe-splice
-                                          (package-build-success-log pkg)
-                                          `(li "Compiled successfully: "
-                                            ,(buildhost-link (package-build-success-log pkg)
-                                                             "transcript")))
-                                       ,@(maybe-splice
-                                          (package-build-failure-log pkg)
-                                          `(li "Compiled unsuccessfully: "
-                                            ,(buildhost-link (package-build-failure-log pkg)
-                                                             "transcript")))
-                                       ,@(maybe-splice
-                                          (package-build-conflicts-log pkg)
-                                          `(li "Conflicts: "
-                                            ,(buildhost-link (package-build-conflicts-log pkg)
-                                                             "details")))
-                                       ,@(maybe-splice
-                                          (package-build-dep-failure-log pkg)
-                                          `(li "Dependency problems: "
-                                            ,(buildhost-link (package-build-dep-failure-log pkg)
-                                                             "details")))
-                                       )))
-                           ,@(let* ((vs (package-versions pkg))
-                                    (empty-checksum "9f098dddde7f217879070816090c1e8e74d49432")
-                                    (vs (for/hash (((k v) (in-hash vs))
-                                                   #:when (not (equal? (@ v checksum)
-                                                                       empty-checksum)))
-                                          (values k v))))
-                               (maybe-splice
-                                (not (hash-empty? vs))
-                                `(tr (th "Versions")
-                                  (td (table ((class "package-versions"))
-                                             (tr (th "Version")
-                                                 (th "Source")
-                                                 (th "Checksum"))
-                                             ,@(for/list
-                                                   (((version-sym v) (in-hash vs)))
-                                                 `(tr
-                                                   (td ,(~a version-sym))
-                                                   (td (a ((href ,(@ v source_url)))
-                                                          ,(@ v source)))
-                                                   (td ,(@ v checksum)))))))))
-                           (tr (th "Last checked")
-                               (td ,(utc->string (package-last-checked pkg))))
-                           (tr (th "Last edited")
-                               (td ,(utc->string (package-last-edit pkg))))
-                           (tr (th "Modules")
-                               (td (ul ((class "module-list"))
-                                       ,@(for/list ((mod (package-modules pkg)))
-                                           (match-define (list kind path) mod)
-                                           `(li ((class ,kind)) ,path)))))
-                           ))])))
+                           `(table ((class "package-details"))
+                             (tr (th "Authors")
+                                 (td (div ((class "authors-detail"))
+                                          ,(authors-list #:gravatars? #t (package-authors pkg)))))
+                             (tr (th "Documentation")
+                                 (td ,(doc-links (package-docs pkg))))
+                             (tr (th "Tags")
+                                 (td ,(tag-links (package-tags pkg))))
+                             (tr (th "Last updated")
+                                 (td ,(utc->string (package-last-updated pkg))))
+                             (tr (th "Ring")
+                                 (td ,(~a (or (package-ring pkg) "N/A"))))
+                             (tr (th "Conflicts")
+                                 (td ,(package-links (package-conflicts pkg))))
+                             (tr (th "Dependencies")
+                                 (td ,(package-links (package-dependencies pkg))))
+                             (tr (th "Most recent build results")
+                                 (td (ul ((class "build-results"))
+                                         ,@(maybe-splice
+                                            (package-build-success-log pkg)
+                                            `(li "Compiled successfully: "
+                                              ,(buildhost-link (package-build-success-log pkg)
+                                                               "transcript")))
+                                         ,@(maybe-splice
+                                            (package-build-failure-log pkg)
+                                            `(li "Compiled unsuccessfully: "
+                                              ,(buildhost-link (package-build-failure-log pkg)
+                                                               "transcript")))
+                                         ,@(maybe-splice
+                                            (package-build-conflicts-log pkg)
+                                            `(li "Conflicts: "
+                                              ,(buildhost-link (package-build-conflicts-log pkg)
+                                                               "details")))
+                                         ,@(maybe-splice
+                                            (package-build-dep-failure-log pkg)
+                                            `(li "Dependency problems: "
+                                              ,(buildhost-link (package-build-dep-failure-log pkg)
+                                                               "details")))
+                                         )))
+                             ,@(let* ((vs (package-versions pkg))
+                                      (empty-checksum "9f098dddde7f217879070816090c1e8e74d49432")
+                                      (vs (for/hash (((k v) (in-hash vs))
+                                                     #:when (not (equal? (@ v checksum)
+                                                                         empty-checksum)))
+                                            (values k v))))
+                                 (maybe-splice
+                                  (not (hash-empty? vs))
+                                  `(tr (th "Versions")
+                                    (td (table ((class "package-versions"))
+                                               (tr (th "Version")
+                                                   (th "Source")
+                                                   (th "Checksum"))
+                                               ,@(for/list
+                                                     (((version-sym v) (in-hash vs)))
+                                                   `(tr
+                                                     (td ,(~a version-sym))
+                                                     (td (a ((href ,(@ v source_url)))
+                                                            ,(@ v source)))
+                                                     (td ,(@ v checksum)))))))))
+                             (tr (th "Last checked")
+                                 (td ,(utc->string (package-last-checked pkg))))
+                             (tr (th "Last edited")
+                                 (td ,(utc->string (package-last-edit pkg))))
+                             (tr (th "Modules")
+                                 (td (ul ((class "module-list"))
+                                         ,@(for/list ((mod (package-modules pkg)))
+                                             (match-define (list kind path) mod)
+                                             `(li ((class ,kind)) ,path)))))
+                             )))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
