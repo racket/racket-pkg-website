@@ -98,18 +98,17 @@
   (authentication-wrap* #t request (lambda () body ...)))
 
 (define-syntax-rule (with-site-config body ...)
-  (let ((static-base (if (rendering-static-page?) static-urlprefix "")))
-    (parameterize ((bootstrap-navbar-header navbar-header)
-                   (bootstrap-navigation `((,nav-index ,(main-page-url))
-                                           (,nav-search ,(named-url search-page))
-                                           ;; ((div ,(glyphicon 'download-alt)
-                                           ;;       " Download")
-                                           ;;  "http://download.racket-lang.org/")
-                                           ))
-                   (bootstrap-static-urlprefix static-base)
-                   (bootstrap-inline-js (format "PkgSiteBaseUrl = '~a/json/';" static-base))
-                   (jsonp-baseurl backend-baseurl))
-      body ...)))
+  (parameterize ((bootstrap-navbar-header navbar-header)
+                 (bootstrap-navigation `((,nav-index ,(main-page-url))
+                                         (,nav-search ,(named-url search-page))
+                                         ;; ((div ,(glyphicon 'download-alt)
+                                         ;;       " Download")
+                                         ;;  "http://download.racket-lang.org/")
+                                         ))
+                 (bootstrap-static-urlprefix (if (rendering-static-page?) static-urlprefix ""))
+                 (bootstrap-inline-js (format "PkgSiteDynamicBaseUrl = '~a';" dynamic-urlprefix))
+                 (jsonp-baseurl backend-baseurl))
+    body ...))
 
 (define clear-session-cookie (make-cookie COOKIE
                                           ""
@@ -1230,26 +1229,24 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define (cors-json-response f)
+  (response/output #:mime-type #"application/json"
+                   #:headers (list (header #"Access-Control-Allow-Origin" #"*"))
+                   f))
+
 (define (json-search-completions request)
   (define completions (set-union (list->set (map ~a (all-package-names))) (all-formal-tags)))
-  (response/output #:mime-type #"application/json"
-                   (lambda (response-port)
-                     (write-json (set->list completions) response-port))))
+  (cors-json-response(lambda (response-port) (write-json (set->list completions) response-port))))
 
 (define (json-tag-search-completions request)
-  (response/output #:mime-type #"application/json"
-                   (lambda (response-port)
-                     (write-json (set->list (all-tags)) response-port))))
+  (cors-json-response(lambda (response-port) (write-json (set->list (all-tags)) response-port))))
 
 (define (json-formal-tags request)
-  (response/output #:mime-type #"application/json"
-                   (lambda (response-port)
-                     (write-json (set->list (all-formal-tags)) response-port))))
+  (cors-json-response (lambda (response-port)
+                        (write-json (set->list (all-formal-tags)) response-port))))
 
 (define (pkgs-all-json request)
-  (response/output #:mime-type #"application/json"
-                   (lambda (response-port)
-                     (write-json (packages-jsexpr) response-port))))
+  (cors-json-response (lambda (response-port) (write-json (packages-jsexpr) response-port))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

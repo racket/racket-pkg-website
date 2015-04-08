@@ -26,12 +26,13 @@ PkgSite = (function () {
   }
 
   function getJSON(relative_url, k) {
-    return $.getJSON(PkgSiteJsonBaseUrl + relative_url, k);
+    return $.getJSON(PkgSiteDynamicBaseUrl + '/json/' + relative_url, k);
   }
 
   return {
     multiTermComplete: multiTermComplete,
-    preventTabMovingDuringSelection: preventTabMovingDuringSelection
+    preventTabMovingDuringSelection: preventTabMovingDuringSelection,
+    getJSON: getJSON
   };
 })();
 
