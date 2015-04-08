@@ -8,7 +8,7 @@ if [ -z "$CONFIG" ]; then
 fi
 
 if [ ! -f configs/${CONFIG}.rkt ]; then
-    echo "Config ${CONFIG} not found: config/${CONFIG}.rkt not readable"
+    echo "Config ${CONFIG} not found: configs/${CONFIG}.rkt not readable"
     exit 1
 fi
 
