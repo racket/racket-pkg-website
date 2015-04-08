@@ -98,16 +98,18 @@
   (authentication-wrap* #t request (lambda () body ...)))
 
 (define-syntax-rule (with-site-config body ...)
-  (parameterize ((bootstrap-navbar-header navbar-header)
-                 (bootstrap-navigation `((,nav-index ,(main-page-url))
-                                         (,nav-search ,(named-url search-page))
-                                         ;; ((div ,(glyphicon 'download-alt)
-                                         ;;       " Download")
-                                         ;;  "http://download.racket-lang.org/")
-                                         ))
-                 (bootstrap-static-urlprefix (if (rendering-static-page?) static-urlprefix ""))
-                 (jsonp-baseurl backend-baseurl))
-    body ...))
+  (let ((static-base (if (rendering-static-page?) static-urlprefix "")))
+    (parameterize ((bootstrap-navbar-header navbar-header)
+                   (bootstrap-navigation `((,nav-index ,(main-page-url))
+                                           (,nav-search ,(named-url search-page))
+                                           ;; ((div ,(glyphicon 'download-alt)
+                                           ;;       " Download")
+                                           ;;  "http://download.racket-lang.org/")
+                                           ))
+                   (bootstrap-static-urlprefix static-base)
+                   (bootstrap-inline-js (format "PkgSiteBaseUrl = '~a/json/';" static-base))
+                   (jsonp-baseurl backend-baseurl))
+      body ...)))
 
 (define clear-session-cookie (make-cookie COOKIE
                                           ""
@@ -579,7 +581,7 @@
 
 (define (main-page request)
   (parameterize ((bootstrap-active-navigation nav-index)
-                 (bootstrap-page-scripts '("/searchbox.js")))
+                 (bootstrap-page-scripts (list (string-append static-urlprefix "/searchbox.js"))))
     (define package-name-list (package-search "" '((main-distribution #f))))
     (authentication-wrap
      #:request request

@@ -25,6 +25,10 @@ PkgSite = (function () {
     });
   }
 
+  function getJSON(relative_url, k) {
+    return $.getJSON(PkgSiteJsonBaseUrl + relative_url, k);
+  }
+
   return {
     multiTermComplete: multiTermComplete,
     preventTabMovingDuringSelection: preventTabMovingDuringSelection
@@ -35,13 +39,13 @@ $(document).ready(function () {
   $("table.sortable").tablesorter();
 
   if ($("#tags").length) {
-    $.getJSON((document.body.className === "package-form")
-	        ? "/json/formal-tags"
-	        : "/json/tag-search-completions",
-	      function (completions) {
-		completions.sort();
-		PkgSite.multiTermComplete(PkgSite.preventTabMovingDuringSelection($("#tags")),
-					  completions);
-	      });
+    PkgSite.getJSON((document.body.className === "package-form")
+	            ? "formal-tags"
+	            : "tag-search-completions",
+		    function (completions) {
+		      completions.sort();
+		      PkgSite.multiTermComplete(PkgSite.preventTabMovingDuringSelection($("#tags")),
+						completions);
+		    });
   }
 });

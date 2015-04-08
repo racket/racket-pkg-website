@@ -11,6 +11,7 @@
          bootstrap-page-stylesheets
          bootstrap-page-scripts
          bootstrap-cookies
+         bootstrap-inline-js
 
          bootstrap-response
 	 bootstrap-redirect
@@ -35,6 +36,7 @@
 (define bootstrap-page-stylesheets (make-parameter '()))
 (define bootstrap-page-scripts (make-parameter '()))
 (define bootstrap-cookies (make-parameter '()))
+(define bootstrap-inline-js (make-parameter #f))
 
 (define (static str)
   (string-append (bootstrap-static-urlprefix) str))
@@ -90,6 +92,7 @@
 	   ,title-element
 	   ,@body-contents)
 
+      (script ,@(cond [(bootstrap-inline-js) => list] [else '()]))
       (script ((type "text/javascript") (src ,(static "/jquery.min.js"))))
       (script ((type "text/javascript") (src ,(static "/jquery.tablesorter.min.js"))))
       (script ((type "text/javascript") (src ,(static "/jquery-ui.min.js"))))
