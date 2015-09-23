@@ -1163,6 +1163,9 @@
                   'source_url (package-url->useful-url source)))))
 
 ;; Copied from meta/pkg-index/official/static.rkt
+;; Modified slightly to recognise additional ad-hockery
+;; e.g. git://github.com/user/repo/ as well as
+;;      git://github.com/user/repo  (note no trailing slash)
 (define (package-url->useful-url pkg-url-str)
     (define pkg-url
       (string->url pkg-url-str))
@@ -1178,15 +1181,16 @@
          [_
           pkg-url-str])]
       ["git"
-       (match (url-path pkg-url)
+       (match (map path/param-path (url-path pkg-url))
          ;; xxx make this more robust
-         [(list user repo)
+         [(or (list user repo)
+              (list user repo ""))
           (url->string
            (struct-copy
             url pkg-url
             [scheme "http"]
-            [path (list user repo (path/param "tree" '())
-                        (path/param "master" '()))]))]
+            [path (map (lambda (x) (path/param x '()))
+                       (list user repo "tree" "master"))]))]
          [_
           pkg-url-str])]
       [_
