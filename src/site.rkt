@@ -1166,6 +1166,14 @@
 ;; Modified slightly to recognise additional ad-hockery
 ;; e.g. git://github.com/user/repo/ as well as
 ;;      git://github.com/user/repo  (note no trailing slash)
+;;
+;; N.B. this code is currently only used for the version of a package
+;; just after saving it locally, before the package server catches up!
+;; The package server uses its own version of this code and generates
+;; its own source_url. In principle, TODO: ignore source_url from the
+;; package server in cases where this code can do better. (Perhaps
+;; fall back to the source_url from the package server.)
+;;
 (define (package-url->useful-url pkg-url-str)
     (define pkg-url
       (string->url pkg-url-str))
