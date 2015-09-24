@@ -34,13 +34,13 @@
   (define-values (_name type) (package-source->name+type str #f))
   (cond
    [(memq type '(git github))
-    (define-values (host port repo branch path)
+    (define-values (_type host port repo branch path)
       (if (equal? "github" (url-scheme u))
           (match (split-github-url u)
             [(list* user repo branch path)
-             (values "github.com" #f (string-append user "/" repo) branch path)]
+             (values 'github "github.com" #f (string-append user "/" repo) branch path)]
             [(list user repo)
-             (values "github.com" #f (string-append user "/" repo) "master" '())]
+             (values 'github "github.com" #f (string-append user "/" repo) "master" '())]
             [_ (error 'string->package-source "Invalid github url: ~v" str)])
           (split-git-url u)))
     ;; TODO: clean this up in repo-path.rkt
