@@ -88,6 +88,18 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define (send/suspend/dispatch/dynamic proc)
+  (send/suspend/dispatch
+   (lambda (embed-url)
+     (proc (lambda args (string-append dynamic-urlprefix (apply embed-url args)))))))
+
+(define (send/suspend/dynamic proc)
+  (send/suspend
+   (lambda (k-url)
+     (proc (string-append dynamic-urlprefix k-url)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (define (named-url . args)
   (string-append dynamic-urlprefix (apply relative-named-url args)))
 
@@ -266,7 +278,7 @@
 
 (define (login-form [error-message #f])
   (with-site-config
-   (send/suspend/dispatch
+   (send/suspend/dispatch/dynamic
     (lambda (embed-url)
       (bootstrap-response "Login"
                           `(form ((class "form-horizontal")
@@ -315,7 +327,7 @@
                        #:code [code ""]
                        #:error-message [error-message #f])
   (with-site-config
-   (send/suspend/dispatch
+   (send/suspend/dispatch/dynamic
     (lambda (embed-url)
       (bootstrap-response "Register/Reset Account"
                           #:title-element ""
@@ -394,7 +406,7 @@
 
 (define (summarise-code-emailing reason email)
   (with-site-config
-   (send/suspend/dispatch
+   (send/suspend/dispatch/dynamic
     (lambda (embed-url)
       (bootstrap-response reason
                           `(p
@@ -830,7 +842,7 @@
 
 (define (package-form error-message draft)
   (with-site-config
-   (send/suspend/dispatch
+   (send/suspend/dispatch/dynamic
     (lambda (embed-url)
 
       (define (build-versions-table)
@@ -975,7 +987,7 @@
 
 (define ((confirm-package-deletion package-name-str) request)
   (with-site-config
-   (send/suspend
+   (send/suspend/dynamic
     (lambda (k-url)
       (bootstrap-response "Confirm Package Deletion"
                           `(div ((class "confirm-package-deletion"))
