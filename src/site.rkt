@@ -1070,59 +1070,28 @@
   (define default-version (assoc "default" versions/default))
   (define source (cadr default-version))
   (define versions (remove default-version versions/default))
-
   (define old-pkg (package-detail (string->symbol old-name)))
-
-  (define-values (added-tags removed-tags)
-    (added-and-removed (package-tags old-pkg) tags))
-  (define-values (added-authors removed-authors)
-    (let ((old-authors (package-authors old-pkg)))
-      (added-and-removed (if (null? old-authors)
-                             (list (current-email))
-                             old-authors)
-                         authors)))
-
-  (define old-versions-map (package-versions old-pkg))
-  (define changed-versions
-    (for/fold ((acc '())) ((v versions))
-      (match-define (list version-str new-source) v)
-      (define version-sym (string->symbol version-str))
-      (define old-source (@ (@ref old-versions-map version-sym) source))
-      (if (equal? old-source new-source)
-          acc
-          (cons v acc))))
-  (define removed-versions
-    (for/list ((k (in-hash-keys old-versions-map))
-               #:when (not (assoc (symbol->string k) versions/default))) ;; NB versions/default !
-      (symbol->string k)))
-
   ;; name, description, and default source are updateable via /jsonp/package/modify.
   ;; tags are added and removed via /jsonp/package/tag/add and .../del.
   ;; authors are added and removed via /jsonp/package/author/add and .../del.
   ;; versions other than default are added and removed via /jsonp/package/version/add and .../del.
+  ;;
+  ;; modify-all incorporates all the add/delete stuff into a single API call.
   (and (or (equal? old-name name)
            ;; Don't let renames stomp on existing packages
            (not (package-detail (string->symbol name))))
-       (jsonp-rpc! "/jsonp/package/modify" `((pkg . ,old-name)
-                                             (name . ,name)
-                                             (description . ,description)
-                                             (source . ,source)))
-       (andmap (lambda (t) (jsonp-rpc! "/jsonp/package/tag/add" `((pkg . ,name) (tag . ,t))))
-               added-tags)
-       (andmap (lambda (t) (jsonp-rpc! "/jsonp/package/tag/del" `((pkg . ,name) (tag . ,t))))
-               removed-tags)
-       (andmap (lambda (a) (jsonp-rpc! "/jsonp/package/author/add" `((pkg . ,name) (author . ,a))))
-               added-authors)
-       (andmap (lambda (a) (jsonp-rpc! "/jsonp/package/author/del" `((pkg . ,name) (author . ,a))))
-               removed-authors)
-       (andmap (lambda (e) (jsonp-rpc! "/jsonp/package/version/add" `((pkg . ,name)
-                                                                      (version . ,(car e))
-                                                                      (source . ,(cadr e)))))
-               changed-versions)
-       (andmap (lambda (v) (jsonp-rpc! "/jsonp/package/version/del" `((pkg . ,name)
-                                                                      (version . ,v))))
-               removed-versions)
-
+       (jsonp-rpc! "/jsonp/package/modify-all"
+                   '()
+                   #:post-data
+                   (string->bytes/utf-8
+                    (jsexpr->string
+                     (hash 'pkg old-name
+                           'name name
+                           'description description
+                           'source source
+                           'tags tags
+                           'authors authors
+                           'versions versions))))
        (let* ((new-pkg (or old-pkg (hash)))
               (new-pkg (hash-set new-pkg 'name name))
               (new-pkg (hash-set new-pkg 'description description))
