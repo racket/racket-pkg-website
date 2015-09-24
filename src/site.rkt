@@ -252,7 +252,7 @@
 (define (login-or-register-url k baseurl)
   (format "~a?~a"
           baseurl
-          (alist->form-urlencoded (list (cons 'k k)))))
+          (alist->form-urlencoded (list (cons 'k (string-append dynamic-urlprefix k))))))
 
 (define (login-or-register-flow request thunk)
   (define-form-bindings request ([k (named-url main-page)]))
