@@ -149,7 +149,7 @@
   (define requested-url (url->string (request-uri request)))
 
   (if (and require-login? (not session))
-      (login-or-register-flow* requested-url login-form)
+      (login-or-register-flow* (string-append dynamic-urlprefix requested-url) login-form)
       (parameterize ((bootstrap-navbar-extension
                       (cond
                        [(not session)
