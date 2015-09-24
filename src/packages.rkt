@@ -121,13 +121,17 @@
                [all-tags
                 (for/fold ((ts (set)))
                           ((pkg (in-hash-values (package-manager-state-local-packages state))))
-                  (set-union ts (list->set
-                                 (map symbol->string
-                                      (hash-keys (or (@ pkg search-terms) (hash)))))))]
+                  (if (tombstone? pkg)
+                      ts
+                      (set-union ts (list->set
+                                     (map symbol->string
+                                          (hash-keys (or (@ pkg search-terms) (hash))))))))]
                [all-formal-tags
                 (for/fold ((ts (set)))
                           ((pkg (in-hash-values (package-manager-state-local-packages state))))
-                  (set-union ts (list->set (or (@ pkg tags) '()))))]))
+                  (if (tombstone? pkg)
+                      ts
+                      (set-union ts (list->set (or (@ pkg tags) '())))))]))
 
 (define (replace-package completion-ch old-pkg new-pkg state)
   (define local-packages (package-manager-state-local-packages state))
