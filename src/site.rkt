@@ -75,6 +75,7 @@
    [("search") search-page]
    [("package" (string-arg)) package-page]
    [("package" (string-arg) "edit") edit-package-page]
+   [("package-not-found") package-not-found-page]
    [("create") edit-package-page]
    [("login") login-page]
    [("register-or-reset") register-or-reset-page]
@@ -644,17 +645,26 @@
                    #f]))
               deps))
 
-(define (package-page request package-name-str)
+(define (package-not-found-page request [package-name-str #f])
   (authentication-wrap
    #:request request
-   (define package-name (string->symbol package-name-str))
-   (define pkg (package-detail package-name))
-   (define default-version (package-default-version pkg))
-   (if (not pkg)
-       (bootstrap-response #:code 404
-                           #:message #"No such package"
-                           "Package not found"
-                           `(div "The package " (code ,package-name-str) " does not exist."))
+   (bootstrap-response #:code 404
+                       #:message #"No such package"
+                       "Package not found"
+                       (if package-name-str
+                           `(div "The package " (code ,package-name-str) " does not exist.")
+                           `(div "The requested package does not exist."))
+                       `(ul (li (a ((href ,(named-url main-page)))
+                                   "Return to the package index"))))))
+
+(define (package-page request package-name-str)
+  (define package-name (string->symbol package-name-str))
+  (define pkg (package-detail package-name))
+  (if (not pkg)
+      (package-not-found-page request package-name-str)
+      (authentication-wrap
+       #:request request
+       (define default-version (package-default-version pkg))
        (bootstrap-response (~a package-name)
                            #:title-element ""
                            `(div ((class "jumbotron"))
@@ -1291,6 +1301,18 @@
 (define (rerender-all!)
   (thread-send (package-change-handler-thread) 'rerender-all!))
 
+(define (internal:rerender-package-not-found!)
+  (static-render! relative-named-url package-not-found-page #:ignore-response-code? #t)
+  (log-info "Generating package/.htaccess")
+  (call-with-output-file
+    (format "~a/package/.htaccess" static-generated-directory)
+    (lambda (p)
+      (fprintf p "ErrorDocument 404 ~a~a\n"
+               static-urlprefix
+               (relative-named-url package-not-found-page)))
+    #:exists 'replace)
+  (finish-static-update!))
+
 (define (package-change-handler index-rerender-needed? pending-completions)
   (sync/timeout (and index-rerender-needed?
                      (lambda ()
@@ -1302,7 +1324,8 @@
                 (handle-evt (thread-receive-evt)
                             (lambda (_)
                               (match (thread-receive)
-                                ['upgrade
+                                ['upgrade ;; Happens every time site.rkt is reloaded
+                                 (internal:rerender-package-not-found!)
                                  (package-change-handler index-rerender-needed?
                                                          pending-completions)]
                                 ['rerender-all!

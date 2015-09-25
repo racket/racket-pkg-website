@@ -34,6 +34,7 @@
 (define rendering-static-page? (make-parameter #f))
 
 (define (static-render! #:filename [base-filename #f]
+                        #:ignore-response-code? [ignore-response-code? #f]
                         named-url handler . named-url-args)
   (define request-url (apply named-url handler named-url-args))
   (log-info "Rendering static version of ~a~a"
@@ -60,7 +61,8 @@
           servlet-prompt)))))
   (define filename (format "~a~a" static-generated-directory (or base-filename request-url)))
   (cond
-   [(<= 200 (response-code response) 299) ;; "OKish" range
+   [(or (<= 200 (response-code response) 299) ;; "OKish" range
+        ignore-response-code?)
     (make-parent-directory* filename)
     (call-with-output-file filename
       (response-output response)
