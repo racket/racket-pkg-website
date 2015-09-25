@@ -12,6 +12,7 @@
 (require racket/string)
 (require racket/port)
 (require (only-in racket/list filter-map))
+(require (only-in racket/exn exn->string))
 (require net/url)
 (require net/uri-codec)
 (require web-server/servlet)
@@ -1269,9 +1270,16 @@
              (hash)
              ;; It's probably a github-like repo. Check for a readme.
              (let ((contents
-                    (port->string
-                     (get-pure-port (string->url (@ default-version source_url))
-                                    #:redirections 10))))
+                    (with-handlers ([exn:fail:network?
+                                     (lambda (e)
+                                       (log-warning
+                                        "Network error retrieving possible readme for ~a:\n~a"
+                                        package-name
+                                        (exn->string e))
+                                       "")])
+                      (port->string
+                       (get-pure-port (string->url (@ default-version source_url))
+                                      #:redirections 10)))))
                ;;(log-info "CONTENTS: ~a === ~a" (@ default-version source_url) contents)
                (if (regexp-match? #px"(?i:id=.readme.)" contents)
                    (let ((readme-url (string-append (@ default-version source_url) "#readme")))
