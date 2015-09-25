@@ -3,7 +3,7 @@
 (provide daemonize-thunk
          daemon-thread)
 
-(require (only-in web-server/private/util exn->string))
+(require (only-in racket/exn exn->string))
 
 (define (daemonize-thunk name boot-thunk)
   (lambda ()
