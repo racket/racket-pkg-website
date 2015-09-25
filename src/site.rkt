@@ -11,6 +11,7 @@
 (require racket/date)
 (require racket/string)
 (require racket/port)
+(require (only-in racket/list filter-map))
 (require net/url)
 (require net/uri-codec)
 (require web-server/servlet)
@@ -632,6 +633,16 @@
                      `(span ((class ,(format "label label-~a" label-type)))
                        ,(glyphicon glyphicon-type) " " ,str))))
 
+(define (dependencies->package-names deps)
+  (filter-map (lambda (dep)
+                (match dep
+                  [(? string? package-name) package-name]
+                  [(cons (? string? package-name) _) package-name]
+                  [_
+                   (log-warning "dependencies->package-names: unknown dependency format: ~v" dep)
+                   #f]))
+              deps))
+
 (define (package-page request package-name-str)
   (authentication-wrap
    #:request request
@@ -747,7 +758,9 @@
                              (tr (th "Conflicts")
                                  (td ,(package-links (package-conflicts pkg))))
                              (tr (th "Dependencies")
-                                 (td ,(package-links (package-dependencies pkg))))
+                                 (td ,(package-links
+                                       (dependencies->package-names
+                                        (package-dependencies pkg)))))
                              (tr (th "Most recent build results")
                                  (td (ul ((class "build-results"))
                                          ,@(maybe-splice
