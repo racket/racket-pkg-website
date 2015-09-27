@@ -603,10 +603,18 @@
                          #:title-element ""
                          #:body-class "main-page"
                          `(div ((class "jumbotron"))
-                           (h1 "Racket Packages")
+                           (h1 "BETA Racket Package Server")
                            (p "These are the packages in the official "
                               (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
                                  "package catalog") ".")
+                           (p "This is a temporary database instance! While the information "
+                              "in the database is copied from the main Racket catalog, changes "
+                              "will NOT be propagated back to the main Racket catalog.")
+                           (p "Questions? Comments? Bugs? Email "
+                              (a ((href "mailto:tonyg@ccs.neu.edu")) "tonyg@ccs.neu.edu")
+                              " or twitter "
+                              (a ((href "https://twitter.com/leastfixedpoint")) "@leastfixedpoint")
+                              ".")
                            (p (a ((href "http://docs.racket-lang.org/pkg/cmdline.html"))
                                  (kbd "raco pkg install " (var "package-name")))
                               " installs a package.")
