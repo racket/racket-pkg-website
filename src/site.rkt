@@ -306,12 +306,12 @@
                             ,(form-group 4 5 (primary-button "Log in"))))))))
 
 (define (authenticate-with-server! email password code)
-  (jsonp-rpc! #:sensitive? #t
-              #:include-credentials? #f
-              "/jsonp/authenticate"
-              (list (cons 'email email)
-                    (cons 'passwd password)
-                    (cons 'code code))))
+  (simple-json-rpc! #:sensitive? #t
+                    #:include-credentials? #f
+                    "/api/authenticate"
+                    (hash 'email email
+                          'passwd password
+                          'code code)))
 
 (define (process-login-credentials request)
   (define-form-bindings request (email password))

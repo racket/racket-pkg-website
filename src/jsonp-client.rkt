@@ -1,7 +1,8 @@
 #lang racket/base
 
 (provide jsonp-baseurl
-         jsonp-rpc!)
+         jsonp-rpc!
+         simple-json-rpc!)
 
 (require racket/match)
 (require racket/format)
@@ -57,3 +58,26 @@
     (define reply (string->jsexpr json))
     (unless sensitive? (log-info "jsonp-rpc: reply ~a" reply))
     reply))
+
+(define (simple-json-rpc! #:sensitive? [sensitive? #f]
+                          #:include-credentials? [include-credentials? #t]
+                          site-relative-url
+                          jsexpr-to-send)
+  (define s (current-session))
+  (if sensitive?
+      (log-info "simple-json-rpc: sensitive request ~a" site-relative-url)
+      (log-info "simple-json-rpc: request ~a params ~a~a"
+                site-relative-url
+                jsexpr-to-send
+                (if include-credentials?
+                    (if s
+                        " +creds"
+                        " +creds(missing)")
+                    "")))
+  (define baseurl (or (jsonp-baseurl) (error 'simple-json-rpc! "jsonp-baseurl is not set")))
+  (define request-url (string->url (format "~a~a" baseurl site-relative-url)))
+  (define post-data (string->bytes/utf-8 (jsexpr->string jsexpr-to-send)))
+  (define raw-response (port->string (post-pure-port request-url post-data)))
+  (define reply (string->jsexpr raw-response))
+  (unless sensitive? (log-info "simple-json-rpc: reply ~a" reply))
+  reply)
