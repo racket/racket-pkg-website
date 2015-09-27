@@ -9,10 +9,16 @@
 (require racket/port)
 (require net/url)
 (require net/uri-codec)
+(require net/base64)
 (require json)
 (require "sessions.rkt")
 
 (define jsonp-baseurl (make-parameter #f))
+
+(define (make-basic-auth-credentials-header username password)
+  (define token
+    (base64-encode (string->bytes/utf-8 (string-append username ":" password)) #""))
+  (string-append "Authorization: Basic " (bytes->string/utf-8 token)))
 
 (define (jsonp-rpc! #:sensitive? [sensitive? #f]
                     #:include-credentials? [include-credentials? #t]
@@ -36,28 +42,27 @@
   (define stamp (~a (inexact->exact (truncate (current-inexact-milliseconds)))))
   (define callback-label (format "callback~a" stamp))
   (define extraction-expr (format "^callback~a\\((.*)\\);$" stamp))
-  (define (add-param ps name val) (cons (cons name val) ps))
-  (let* ((parameters original-parameters)
-         (parameters (if (and include-credentials? s)
-                         (add-param (add-param parameters 'email (session-email s))
-                                    'passwd (session-password s))
-                         parameters))
-         (parameters (add-param parameters 'callback callback-label)))
-    (define baseurl (or (jsonp-baseurl) (error 'jsonp-rpc! "jsonp-baseurl is not set")))
-    (define request-url (string->url (format "~a~a?~a"
-                                             baseurl
-                                             site-relative-url
-                                             (alist->form-urlencoded parameters))))
-    (define-values (body-port response-headers)
-      (if post-data
-          (values (post-pure-port request-url post-data)
-                  'unknown-response-headers-because-post-pure-port-doesnt-return-them)
-          (get-pure-port/headers request-url)))
-    (define raw-response (port->string body-port))
-    (match-define (pregexp extraction-expr (list _ json)) raw-response)
-    (define reply (string->jsexpr json))
-    (unless sensitive? (log-info "jsonp-rpc: reply ~a" reply))
-    reply))
+  (define parameters (cons (cons 'callback callback-label) original-parameters))
+  (define baseurl (or (jsonp-baseurl) (error 'jsonp-rpc! "jsonp-baseurl is not set")))
+  (define request-url (string->url (format "~a~a?~a"
+                                           baseurl
+                                           site-relative-url
+                                           (alist->form-urlencoded parameters))))
+  (define-values (body-port response-headers)
+    (if post-data
+        (values (post-pure-port request-url
+                                post-data
+                                (list (make-basic-auth-credentials-header (session-email s)
+                                                                          (session-password s))))
+                'unknown-response-headers-because-post-pure-port-doesnt-return-them)
+        (get-pure-port/headers request-url
+                               (list (make-basic-auth-credentials-header (session-email s)
+                                                                         (session-password s))))))
+  (define raw-response (port->string body-port))
+  (match-define (pregexp extraction-expr (list _ json)) raw-response)
+  (define reply (string->jsexpr json))
+  (unless sensitive? (log-info "jsonp-rpc: reply ~a" reply))
+  reply)
 
 (define (simple-json-rpc! #:sensitive? [sensitive? #f]
                           #:include-credentials? [include-credentials? #t]
