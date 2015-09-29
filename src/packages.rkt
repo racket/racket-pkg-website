@@ -201,7 +201,7 @@
      [('package-detail name)
       (values (lookup-package name local-packages) state)]
      [('package-batch-detail names)
-      (values (for/list ((name names)) (lookup-package name local-packages)) state)]
+      (values (filter values (for/list ((name names)) (lookup-package name local-packages))) state)]
      [('external-information name)
       (values (hash-ref external-information name (lambda () (hash))) state)]
      [('set-external-information! name info)
