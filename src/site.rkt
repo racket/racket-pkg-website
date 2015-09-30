@@ -44,9 +44,9 @@
 (define nav-index "Package Index")
 (define nav-search "Search")
 
-(define navbar-header
+(define (navbar-header)
   `(a ((href "http://www.racket-lang.org/"))
-    (img ((src ,(string-append static-urlprefix "/logo-and-text.png"))
+    (img ((src ,(static-resource-url "/logo-and-text.png"))
           (height "60")
           (alt "Racket Package Index")))))
 
@@ -75,7 +75,7 @@
    [("search") search-page]
    [("package" (string-arg)) package-page]
    [("package" (string-arg) "edit") edit-package-page]
-   [("package-not-found") package-not-found-page]
+   [("not-found") not-found-page]
    [("create") edit-package-page]
    [("login") login-page]
    [("register-or-reset") register-or-reset-page]
@@ -106,6 +106,11 @@
 (define (named-url . args)
   (string-append dynamic-urlprefix (apply relative-named-url args)))
 
+(define (static-resource-url suffix)
+  (if (rendering-static-page?)
+      (string-append static-urlprefix suffix)
+      suffix))
+
 (define-syntax-rule (authentication-wrap #:request request body ...)
   (authentication-wrap* #f request (lambda () body ...)))
 
@@ -113,7 +118,7 @@
   (authentication-wrap* #t request (lambda () body ...)))
 
 (define-syntax-rule (with-site-config body ...)
-  (parameterize ((bootstrap-navbar-header navbar-header)
+  (parameterize ((bootstrap-navbar-header (navbar-header))
                  (bootstrap-navigation `((,nav-index ,(main-page-url))
                                          (,nav-search ,(named-url search-page))
                                          ;; ((div ,(glyphicon 'download-alt)
@@ -121,7 +126,12 @@
                                          ;;  "http://download.racket-lang.org/")
                                          ))
                  (bootstrap-static-urlprefix (if (rendering-static-page?) static-urlprefix ""))
-                 (bootstrap-inline-js (format "PkgSiteDynamicBaseUrl = '~a';" dynamic-urlprefix))
+                 (bootstrap-inline-js
+                  (string-append (format "PkgSiteDynamicBaseUrl = '~a';" dynamic-urlprefix)
+                                 (format "PkgSiteStaticBaseUrl = '~a';" static-urlprefix)
+                                 (format "IsStaticPage = ~a;" (if (rendering-static-page?)
+                                                                  "true"
+                                                                  "false"))))
                  (jsonp-baseurl backend-baseurl))
     body ...))
 
@@ -595,44 +605,46 @@
 
 (define (main-page request)
   (parameterize ((bootstrap-active-navigation nav-index)
-                 (bootstrap-page-scripts (list (string-append static-urlprefix "/searchbox.js"))))
+                 (bootstrap-page-scripts (list (static-resource-url "/searchbox.js"))))
     (define package-name-list (package-search "" '((main-distribution #f))))
     (authentication-wrap
      #:request request
-     (bootstrap-response "Racket Package Index"
-                         #:title-element ""
-                         #:body-class "main-page"
-                         `(div ((class "jumbotron"))
-                           (h1 "BETA Racket Package Server")
-                           (p "These are the packages in the official "
-                              (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
-                                 "package catalog") ".")
-                           (p "This is a temporary database instance! While the information "
-                              "in the database is copied from the main Racket catalog, changes "
-                              "will NOT be propagated back to the main Racket catalog.")
-                           (p "Questions? Comments? Bugs? Email "
-                              (a ((href "mailto:tonyg@ccs.neu.edu")) "tonyg@ccs.neu.edu")
-                              " or twitter "
-                              (a ((href "https://twitter.com/leastfixedpoint")) "@leastfixedpoint")
-                              ".")
-                           (p (a ((href "http://docs.racket-lang.org/pkg/cmdline.html"))
-                                 (kbd "raco pkg install " (var "package-name")))
-                              " installs a package.")
-                           (p "You can "
-                              (a ((id "create-package-link")
-                                  (href ,(named-url edit-package-page)))
-                                 (span ((class "label label-success"))
-                                       ,(glyphicon 'plus-sign)
-                                       " add your own"))
-                              " packages to the index."))
-                         `(div ((id "search-box"))
-                           (form ((role "form")
-                                  (action ,(named-url search-page)))
-                                 ,(text-input "q" #:placeholder "Search packages")))
-                         `(div
-                           (p ((class "package-count"))
-                              ,(format "~a packages" (length package-name-list)))
-                           ,(package-summary-table package-name-list))))))
+     (if (and (not (rendering-static-page?)) (use-cache?))
+         (bootstrap-redirect (main-page-url))
+         (bootstrap-response "Racket Package Index"
+           #:title-element ""
+           #:body-class "main-page"
+           `(div ((class "jumbotron"))
+                 (h1 "BETA Racket Package Server")
+                 (p "These are the packages in the official "
+                    (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
+                       "package catalog") ".")
+                 (p "This is a temporary database instance! While the information "
+                    "in the database is copied from the main Racket catalog, changes "
+                    "will NOT be propagated back to the main Racket catalog.")
+                 (p "Questions? Comments? Bugs? Email "
+                    (a ((href "mailto:tonyg@ccs.neu.edu")) "tonyg@ccs.neu.edu")
+                    " or twitter "
+                    (a ((href "https://twitter.com/leastfixedpoint")) "@leastfixedpoint")
+                    ".")
+                 (p (a ((href "http://docs.racket-lang.org/pkg/cmdline.html"))
+                       (kbd "raco pkg install " (var "package-name")))
+                    " installs a package.")
+                 (p "You can "
+                    (a ((id "create-package-link")
+                        (href ,(named-url edit-package-page)))
+                       (span ((class "label label-success"))
+                             ,(glyphicon 'plus-sign)
+                             " add your own"))
+                    " packages to the index."))
+           `(div ((id "search-box"))
+                 (form ((role "form")
+                        (action ,(named-url search-page)))
+                       ,(text-input "q" #:placeholder "Search packages")))
+           `(div
+             (p ((class "package-count"))
+                ,(format "~a packages" (length package-name-list)))
+             ,(package-summary-table package-name-list)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -653,186 +665,195 @@
                    #f]))
               deps))
 
-(define (package-not-found-page request [package-name-str #f])
+(define (not-found-page request [package-name-str #f])
   (authentication-wrap
    #:request request
    (bootstrap-response #:code 404
-                       #:message #"No such package"
-                       "Package not found"
-                       (if package-name-str
-                           `(div "The package " (code ,package-name-str) " does not exist.")
-                           `(div "The requested package does not exist."))
-                       `(ul (li (a ((href ,(named-url main-page)))
+                       #:message #"Page not found"
+                       "Page not found"
+                       `(div "The page you requested does not exist.")
+                       `(ul (li (a ((href ,(main-page-url)))
                                    "Return to the package index"))))))
 
 (define (package-page request package-name-str)
   (define package-name (string->symbol package-name-str))
   (define pkg (package-detail package-name))
-  (if (not pkg)
-      (package-not-found-page request package-name-str)
-      (authentication-wrap
-       #:request request
-       (define default-version (package-default-version pkg))
-       (bootstrap-response (~a package-name)
-                           #:title-element ""
-                           `(div ((class "jumbotron"))
-                             (h1 ,(~a package-name))
-                             (p ,(package-description pkg))
-                             ,(cond
-                               [(package-build-failure-log pkg)
-                                (build-status (package-build-failure-log pkg)
-                                              "failed" "danger" "fire")]
-                               [(and (package-build-success-log pkg)
-                                     (package-build-dep-failure-log pkg))
-                                (build-status (package-build-dep-failure-log pkg)
-                                              "problems" "warning" "question-sign")]
-                               [(package-build-success-log pkg)
-                                (build-status (package-build-success-log pkg)
-                                              "ok" "success" "ok")]
-                               [else
-                                ""])
-                             (div ((class "dropdown"))
-                                  ,@(let ((docs (package-docs pkg)))
-                                      (match docs
-                                        [(list)
-                                         `()]
-                                        [(list doc)
-                                         (define-values (n u) (doc-destruct doc))
-                                         (list (buildhost-link
-                                                #:attributes `((class "btn btn-success btn-lg"))
-                                                u
-                                                `(span ,(glyphicon 'file) " Documentation")))]
-                                        [_
-                                         `((button ((class "btn btn-success btn-lg dropdown-toggle")
-                                                    (data-toggle "dropdown"))
-                                                   ,(glyphicon 'file)
-                                                   " Documentation "
-                                                   (span ((class "caret"))))
-                                           (ul ((class "dropdown-menu")
-                                                (role "menu"))
-                                               ,@(for/list ((doc docs)) `(li ,(doc-link doc)))))]))
+  (authentication-wrap
+   #:request request
+   (cond
+     [(not pkg)
+      (bootstrap-response #:code 404
+                          #:message #"No such package"
+                          "Package not found"
+                          (if package-name-str
+                              `(div "The package " (code ,package-name-str) " does not exist.")
+                              `(div "The requested package does not exist."))
+                          `(ul (li (a ((href ,(main-page-url)))
+                                      "Return to the package index"))))]
+     [(and (not (rendering-static-page?)) (use-cache?))
+      (bootstrap-redirect (view-package-url package-name))]
+     [else
+      (let ((default-version (package-default-version pkg)))
+        (bootstrap-response (~a package-name)
+          #:title-element ""
+          `(div ((class "jumbotron"))
+                (h1 ,(~a package-name))
+                (p ,(package-description pkg))
+                ,(cond
+                   [(package-build-failure-log pkg)
+                    (build-status (package-build-failure-log pkg)
+                                  "failed" "danger" "fire")]
+                   [(and (package-build-success-log pkg)
+                         (package-build-dep-failure-log pkg))
+                    (build-status (package-build-dep-failure-log pkg)
+                                  "problems" "warning" "question-sign")]
+                   [(package-build-success-log pkg)
+                    (build-status (package-build-success-log pkg)
+                                  "ok" "success" "ok")]
+                   [else
+                    ""])
+                (div ((class "dropdown"))
+                     ,@(let ((docs (package-docs pkg)))
+                         (match docs
+                           [(list)
+                            `()]
+                           [(list doc)
+                            (define-values (n u) (doc-destruct doc))
+                            (list (buildhost-link
+                                   #:attributes `((class "btn btn-success btn-lg"))
+                                   u
+                                   `(span ,(glyphicon 'file) " Documentation")))]
+                           [_
+                            `((button ((class "btn btn-success btn-lg dropdown-toggle")
+                                       (data-toggle "dropdown"))
+                                      ,(glyphicon 'file)
+                                      " Documentation "
+                                      (span ((class "caret"))))
+                              (ul ((class "dropdown-menu")
+                                   (role "menu"))
+                                  ,@(for/list ((doc docs)) `(li ,(doc-link doc)))))]))
 
-                                  " "
-                                  ,@(maybe-splice
-                                     (package-readme-url pkg)
-                                     `(a ((class "btn btn-info btn-lg")
-                                          (href ,(package-readme-url pkg)))
-                                       ,(glyphicon 'eye-open)
-                                       " README"))
+                     " "
+                     ,@(maybe-splice
+                        (package-readme-url pkg)
+                        `(a ((class "btn btn-info btn-lg")
+                             (href ,(package-readme-url pkg)))
+                            ,(glyphicon 'eye-open)
+                            " README"))
 
-                                  ;; Heuristic guess as to whether we should present a "browse"
-                                  ;; link or a "download" link.
-                                  " "
-                                  ,(if (equal? (@ default-version source)
-                                               (@ default-version source_url))
-                                       `(a ((class "btn btn-default btn-lg")
-                                            (href ,(@ default-version source_url)))
-                                         ,(glyphicon 'download) " Download"
-                                         ;; ,(if (regexp-match? "(?i:\\.zip$)" (or (@ default-version source_url) ""))
-                                         ;;      " Zip file"
-                                         ;;      " Download")
-                                         )
-                                       `(a ((class "btn btn-default btn-lg")
-                                            (href ,(@ default-version source_url)))
-                                         ,(glyphicon 'link) " Code"))
+                     ;; Heuristic guess as to whether we should present a "browse"
+                     ;; link or a "download" link.
+                     " "
+                     ,(if (equal? (@ default-version source)
+                                  (@ default-version source_url))
+                          `(a ((class "btn btn-default btn-lg")
+                               (href ,(@ default-version source_url)))
+                              ,(glyphicon 'download) " Download"
+                              ;; ,(if (regexp-match? "(?i:\\.zip$)" (or (@ default-version source_url) ""))
+                              ;;      " Zip file"
+                              ;;      " Download")
+                              )
+                          `(a ((class "btn btn-default btn-lg")
+                               (href ,(@ default-version source_url)))
+                              ,(glyphicon 'link) " Code"))
 
-                                  ,@(maybe-splice
-                                     (member (current-email) (package-authors pkg))
-                                     " "
-                                     `(a ((class "btn btn-info btn-lg")
-                                          (href ,(named-url edit-package-page package-name-str)))
-                                       ,(glyphicon 'edit) " Edit this package"))
-                                  ))
+                     ,@(maybe-splice
+                        (member (current-email) (package-authors pkg))
+                        " "
+                        `(a ((class "btn btn-info btn-lg")
+                             (href ,(named-url edit-package-page package-name-str)))
+                            ,(glyphicon 'edit) " Edit this package"))
+                     ))
 
-                           (if (package-locally-modified? pkg)
-                               `(div ((class "alert alert-warning")
-                                      (role "alert"))
-                                 ,(glyphicon 'exclamation-sign)
-                                 " This package has been modified since the package index was last rebuilt."
-                                 " The next index refresh is scheduled for "
-                                 ,(utc->string (/ (next-fetch-deadline) 1000)) ".")
-                               "")
+          (if (package-locally-modified? pkg)
+              `(div ((class "alert alert-warning")
+                     (role "alert"))
+                    ,(glyphicon 'exclamation-sign)
+                    " This package has been modified since the package index was last rebuilt."
+                    " The next index refresh is scheduled for "
+                    ,(utc->string (/ (next-fetch-deadline) 1000)) ".")
+              "")
 
-                           (if (package-checksum-error pkg)
-                               `(div ((class "alert alert-danger")
-                                      (role "alert"))
-                                 (span ((class "label label-danger"))
-                                       "Checksum error")
-                                 " The package checksum does not match"
-                                 " the package source code.")
-                               "")
+          (if (package-checksum-error pkg)
+              `(div ((class "alert alert-danger")
+                     (role "alert"))
+                    (span ((class "label label-danger"))
+                          "Checksum error")
+                    " The package checksum does not match"
+                    " the package source code.")
+              "")
 
-                           `(table ((class "package-details"))
-                             (tr (th "Authors")
-                                 (td (div ((class "authors-detail"))
-                                          ,(authors-list #:gravatars? #t (package-authors pkg)))))
-                             (tr (th "Documentation")
-                                 (td ,(doc-links (package-docs pkg))))
-                             (tr (th "Tags")
-                                 (td ,(tag-links (package-tags pkg))))
-                             (tr (th "Last updated")
-                                 (td ,(utc->string (package-last-updated pkg))))
-                             (tr (th "Ring")
-                                 (td ,(~a (or (package-ring pkg) "N/A"))))
-                             (tr (th "Conflicts")
-                                 (td ,(package-links (package-conflicts pkg))))
-                             (tr (th "Dependencies")
-                                 (td ,(package-links
-                                       (dependencies->package-names
-                                        (package-dependencies pkg)))))
-                             (tr (th "Most recent build results")
-                                 (td (ul ((class "build-results"))
-                                         ,@(maybe-splice
-                                            (package-build-success-log pkg)
-                                            `(li "Compiled successfully: "
-                                              ,(buildhost-link (package-build-success-log pkg)
-                                                               "transcript")))
-                                         ,@(maybe-splice
-                                            (package-build-failure-log pkg)
-                                            `(li "Compiled unsuccessfully: "
-                                              ,(buildhost-link (package-build-failure-log pkg)
-                                                               "transcript")))
-                                         ,@(maybe-splice
-                                            (package-build-conflicts-log pkg)
-                                            `(li "Conflicts: "
-                                              ,(buildhost-link (package-build-conflicts-log pkg)
-                                                               "details")))
-                                         ,@(maybe-splice
-                                            (package-build-dep-failure-log pkg)
-                                            `(li "Dependency problems: "
-                                              ,(buildhost-link (package-build-dep-failure-log pkg)
-                                                               "details")))
-                                         )))
-                             ,@(let* ((vs (package-versions pkg))
-                                      (empty-checksum "9f098dddde7f217879070816090c1e8e74d49432")
-                                      (vs (for/hash (((k v) (in-hash vs))
-                                                     #:when (not (equal? (@ v checksum)
-                                                                         empty-checksum)))
-                                            (values k v))))
-                                 (maybe-splice
-                                  (not (hash-empty? vs))
-                                  `(tr (th "Versions")
-                                    (td (table ((class "package-versions"))
-                                               (tr (th "Version")
-                                                   (th "Source")
-                                                   (th "Checksum"))
-                                               ,@(for/list
-                                                     (((version-sym v) (in-hash vs)))
-                                                   `(tr
-                                                     (td ,(~a version-sym))
-                                                     (td (a ((href ,(@ v source_url)))
-                                                            ,(@ v source)))
-                                                     (td ,(@ v checksum)))))))))
-                             (tr (th "Last checked")
-                                 (td ,(utc->string (package-last-checked pkg))))
-                             (tr (th "Last edited")
-                                 (td ,(utc->string (package-last-edit pkg))))
-                             (tr (th "Modules")
-                                 (td (ul ((class "module-list"))
-                                         ,@(for/list ((mod (package-modules pkg)))
-                                             (match-define (list kind path) mod)
-                                             `(li ((class ,kind)) ,path)))))
-                             )))))
+          `(table ((class "package-details"))
+                  (tr (th "Authors")
+                      (td (div ((class "authors-detail"))
+                               ,(authors-list #:gravatars? #t (package-authors pkg)))))
+                  (tr (th "Documentation")
+                      (td ,(doc-links (package-docs pkg))))
+                  (tr (th "Tags")
+                      (td ,(tag-links (package-tags pkg))))
+                  (tr (th "Last updated")
+                      (td ,(utc->string (package-last-updated pkg))))
+                  (tr (th "Ring")
+                      (td ,(~a (or (package-ring pkg) "N/A"))))
+                  (tr (th "Conflicts")
+                      (td ,(package-links (package-conflicts pkg))))
+                  (tr (th "Dependencies")
+                      (td ,(package-links
+                            (dependencies->package-names
+                             (package-dependencies pkg)))))
+                  (tr (th "Most recent build results")
+                      (td (ul ((class "build-results"))
+                              ,@(maybe-splice
+                                 (package-build-success-log pkg)
+                                 `(li "Compiled successfully: "
+                                      ,(buildhost-link (package-build-success-log pkg)
+                                                       "transcript")))
+                              ,@(maybe-splice
+                                 (package-build-failure-log pkg)
+                                 `(li "Compiled unsuccessfully: "
+                                      ,(buildhost-link (package-build-failure-log pkg)
+                                                       "transcript")))
+                              ,@(maybe-splice
+                                 (package-build-conflicts-log pkg)
+                                 `(li "Conflicts: "
+                                      ,(buildhost-link (package-build-conflicts-log pkg)
+                                                       "details")))
+                              ,@(maybe-splice
+                                 (package-build-dep-failure-log pkg)
+                                 `(li "Dependency problems: "
+                                      ,(buildhost-link (package-build-dep-failure-log pkg)
+                                                       "details")))
+                              )))
+                  ,@(let* ((vs (package-versions pkg))
+                           (empty-checksum "9f098dddde7f217879070816090c1e8e74d49432")
+                           (vs (for/hash (((k v) (in-hash vs))
+                                          #:when (not (equal? (@ v checksum)
+                                                              empty-checksum)))
+                                 (values k v))))
+                      (maybe-splice
+                       (not (hash-empty? vs))
+                       `(tr (th "Versions")
+                            (td (table ((class "package-versions"))
+                                       (tr (th "Version")
+                                           (th "Source")
+                                           (th "Checksum"))
+                                       ,@(for/list
+                                             (((version-sym v) (in-hash vs)))
+                                           `(tr
+                                             (td ,(~a version-sym))
+                                             (td (a ((href ,(@ v source_url)))
+                                                    ,(@ v source)))
+                                             (td ,(@ v checksum)))))))))
+                  (tr (th "Last checked")
+                      (td ,(utc->string (package-last-checked pkg))))
+                  (tr (th "Last edited")
+                      (td ,(utc->string (package-last-edit pkg))))
+                  (tr (th "Modules")
+                      (td (ul ((class "module-list"))
+                              ,@(for/list ((mod (package-modules pkg)))
+                                  (match-define (list kind path) mod)
+                                  `(li ((class ,kind)) ,path)))))
+                  )))])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1309,23 +1330,33 @@
 (define (rerender-all!)
   (thread-send (package-change-handler-thread) 'rerender-all!))
 
-(define (internal:rerender-package-not-found!)
-  (static-render! relative-named-url package-not-found-page #:ignore-response-code? #t)
-  (log-info "Generating package/.htaccess")
-  (call-with-output-file
-    (format "~a/package/.htaccess" static-generated-directory)
-    (lambda (p)
-      (fprintf p "ErrorDocument 404 ~a~a\n"
-               static-urlprefix
-               (relative-named-url package-not-found-page)))
-    #:exists 'replace)
-  (finish-static-update!))
+(define (internal:rerender-not-found!)
+  ;; TODO: general-purpose error page instead.
+  (static-render! #:mime-type "text/html"
+                  relative-named-url not-found-page
+                  #:ignore-response-code? #t)
+  (log-info "Generating .htaccess")
+  (static-put-file! "/.htaccess"
+                    (string->bytes/utf-8
+                     (format "ErrorDocument 404 ~a~a\n"
+                             static-urlprefix
+                             (relative-named-url not-found-page)))
+                    "text/plain")
+  (static-finish-update!))
 
 (define (package-change-handler index-rerender-needed? pending-completions)
   (sync/timeout (and index-rerender-needed?
                      (lambda ()
-                       (static-render! relative-named-url main-page #:filename "/index.html")
-                       (finish-static-update!)
+                       (static-render! #:mime-type "text/html"
+                                       relative-named-url main-page
+                                       #:filename "/index.html")
+                       (static-render! #:mime-type "application/json"
+                                       relative-named-url json-search-completions)
+                       (static-render! #:mime-type "application/json"
+                                       relative-named-url json-tag-search-completions)
+                       (static-render! #:mime-type "application/json"
+                                       relative-named-url json-formal-tags)
+                       (static-finish-update!)
                        (for ((completion-ch pending-completions))
                          (channel-put completion-ch (void)))
                        (package-change-handler #f '())))
@@ -1333,21 +1364,23 @@
                             (lambda (_)
                               (match (thread-receive)
                                 ['upgrade ;; Happens every time site.rkt is reloaded
-                                 (internal:rerender-package-not-found!)
+                                 (internal:rerender-not-found!)
                                  (package-change-handler index-rerender-needed?
                                                          pending-completions)]
                                 ['rerender-all!
                                  (log-info "rerender-all!")
                                  (for ((p (all-package-names)))
                                    (update-external-package-information! p)
-                                   (static-render! relative-named-url
+                                   (static-render! #:mime-type "text/html"
+                                                   relative-named-url
                                                    package-page
                                                    (symbol->string p)))
                                  (package-change-handler #t
                                                          pending-completions)]
                                 [(list 'package-changed completion-ch package-name)
                                  (update-external-package-information! package-name)
-                                 (static-render! relative-named-url
+                                 (static-render! #:mime-type "text/html"
+                                                 relative-named-url
                                                  package-page
                                                  (symbol->string package-name))
                                  (package-change-handler

@@ -30,19 +30,26 @@ Keys useful for deployment:
  - *recent-seconds*: number, in seconds; default 172800. Packages
    modified fewer than this many seconds ago are considered "recent",
    and displayed as such in the UI.
- - *static-content-target-directory*: either `#f` or a string denoting
-   a path to a folder to which the static content of the site will be
-   copied.
- - *static-content-update-hook*: either `#f`, or a string containing a
-   shell command to invoke every time files are updated in
-   *static-content-target-directory*.
+ - *static-output-type*: either `'aws-s3` or `'file`.
+    - When `'file`,
+	   - *static-content-target-directory*: either `#f` or a string
+		 denoting a path to a folder to which the static content of
+		 the site will be copied.
+    - When `'aws-s3`,
+       - *aws-s3-bucket+path*: a string naming an S3 bucket and path.
+         Must end with a forward slash, ".../". AWS access keys are
+         loaded per the documentation for the `aws` module; usually
+         from a file `~/.aws-keys`.
  - *dynamic-urlprefix*: string; absolute or relative URL, prepended to
    URLs targetting dynamic content on the site.
  - *static-urlprefix*: string; absolute or relative URL, prepended to
    relative URLs referring to static HTML files placed in
    `static-generated-directory`.
- - *extra-static-content-directories*: list of strings; defaults to
-   the empty list.
+ - *pkg-index-generated-directory*: a string pointing to where the
+   `pkg-index` package places its redered files, to be served
+   statically. The source file `static.rkt` in this codebase knows
+   precisely which files and directories within
+   `pkg-index-generated-directory` to upload to the final site.
 
 Keys useful for development:
 

@@ -25,14 +25,20 @@ PkgSite = (function () {
     });
   }
 
-  function getJSON(relative_url, k) {
+  function dynamicJSON(relative_url, k) {
     return $.getJSON(PkgSiteDynamicBaseUrl + '/json/' + relative_url, k);
+  }
+
+  function staticJSON(relative_url, k) {
+    return $.getJSON((IsStaticPage ? PkgSiteStaticBaseUrl : PkgSiteDynamicBaseUrl)
+		     + '/json/' + relative_url, k);
   }
 
   return {
     multiTermComplete: multiTermComplete,
     preventTabMovingDuringSelection: preventTabMovingDuringSelection,
-    getJSON: getJSON
+    dynamicJSON: dynamicJSON,
+    staticJSON: staticJSON
   };
 })();
 
@@ -40,13 +46,14 @@ $(document).ready(function () {
   $("table.sortable").tablesorter();
 
   if ($("#tags").length) {
-    PkgSite.getJSON((document.body.className === "package-form")
-	            ? "formal-tags"
-	            : "tag-search-completions",
-		    function (completions) {
-		      completions.sort();
-		      PkgSite.multiTermComplete(PkgSite.preventTabMovingDuringSelection($("#tags")),
-						completions);
-		    });
+    PkgSite.staticJSON((document.body.className === "package-form")
+	               ? "formal-tags"
+	               : "tag-search-completions",
+		       function (completions) {
+			 completions.sort();
+			 PkgSite.multiTermComplete(
+			   PkgSite.preventTabMovingDuringSelection($("#tags")),
+			   completions);
+		       });
   }
 });
