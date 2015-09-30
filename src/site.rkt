@@ -1356,10 +1356,6 @@
                                        #:filename "/index.html")
                        (static-render! #:mime-type "application/json"
                                        relative-named-url json-search-completions)
-                       (static-render! #:mime-type "application/json"
-                                       relative-named-url json-tag-search-completions)
-                       (static-render! #:mime-type "application/json"
-                                       relative-named-url json-formal-tags)
                        (static-finish-update!)
                        (for ((completion-ch pending-completions))
                          (channel-put completion-ch (void)))

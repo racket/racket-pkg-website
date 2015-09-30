@@ -46,14 +46,14 @@ $(document).ready(function () {
   $("table.sortable").tablesorter();
 
   if ($("#tags").length) {
-    PkgSite.staticJSON((document.body.className === "package-form")
-	               ? "formal-tags"
-	               : "tag-search-completions",
-		       function (completions) {
-			 completions.sort();
-			 PkgSite.multiTermComplete(
-			   PkgSite.preventTabMovingDuringSelection($("#tags")),
-			   completions);
-		       });
+    PkgSite.dynamicJSON((document.body.className === "package-form")
+			? "formal-tags"
+			: "tag-search-completions",
+			function (completions) {
+			  completions.sort();
+			  PkgSite.multiTermComplete(
+			    PkgSite.preventTabMovingDuringSelection($("#tags")),
+			    completions);
+			});
   }
 });
