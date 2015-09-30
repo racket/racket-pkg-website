@@ -269,7 +269,11 @@
 
 (define (login-or-register-flow request thunk)
   (define-form-bindings request ([k (named-url main-page)]))
-  (login-or-register-flow* k thunk))
+  (define session (request->session request))
+  (if session
+      (with-site-config
+        (bootstrap-redirect k))
+      (login-or-register-flow* k thunk)))
 
 (define (login-or-register-flow* k thunk)
   (with-session-cookie (thunk)
