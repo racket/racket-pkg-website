@@ -171,7 +171,9 @@
   (define relative-path (absolute-path->relative-path absolute-path))
   (define new-md5 (md5 content-bytes))
   (if (equal? new-md5 (hash-ref index relative-path #f))
-      (log-info "Not uploading ~a to S3, since MD5 has not changed" relative-path)
+      (begin
+        ;; (log-info "Not uploading ~a to S3, since MD5 has not changed" relative-path)
+        (void))
       (begin
         (log-info "Uploading ~a to S3; new MD5 = ~a" relative-path new-md5)
         (put/bytes (string-append aws-s3-bucket+path relative-path)
