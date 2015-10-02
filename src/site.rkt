@@ -75,6 +75,7 @@
    [("search") search-page]
    [("package" (string-arg)) package-page]
    [("package" (string-arg) "edit") edit-package-page]
+   [("update-my-packages") update-my-packages-page]
    [("not-found") not-found-page]
    [("create") edit-package-page]
    [("login") login-page]
@@ -195,12 +196,15 @@
                                                        (format "author:~a"
                                                                (session-email session))))))
                                              ,(glyphicon 'user) " My packages"))
-                                      (li ((class "divider"))
-                                          (li (a ((href
-                                                   ,(login-or-register-url
-                                                     requested-url
-                                                     (named-url logout-page))))
-                                                 ,(glyphicon 'log-out) " Log out")))))))]))
+                                      (li ((class "divider")))
+                                      (li (a ((href ,(named-url update-my-packages-page)))
+                                             ,(glyphicon 'refresh) " Rescan all my packages"))
+                                      (li ((class "divider")))
+                                      (li (a ((href
+                                               ,(login-or-register-url
+                                                 requested-url
+                                                 (named-url logout-page))))
+                                             ,(glyphicon 'log-out) " Log out"))))))]))
                      (current-session session)
                      (bootstrap-cookies
                       (if session
@@ -1241,6 +1245,20 @@
           pkg-url-str])]
       [_
        pkg-url-str]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (update-my-packages-page request)
+  (authentication-wrap/require-login
+   #:request request
+   (jsonp-rpc! "/jsonp/update" '())
+   (bootstrap-response "Refresh All My Packages"
+                       `(div
+                         (p "All packages where you are listed as an author are now being rescanned.")
+                         (p "The results will be available after the next index refresh, which is "
+                            "scheduled for " ,(utc->string (/ (next-fetch-deadline) 1000))))
+                       `(ul (li (a ((href ,(main-page-url)))
+                                   "Return to the package index"))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
