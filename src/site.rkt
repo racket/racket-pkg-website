@@ -331,6 +331,11 @@
                           'passwd password
                           'code code)))
 
+(define (authentication-success->curator? success)
+  (match success
+    [#t #f] ;; new user -- we can only assume they are *not* curators
+    [(hash-table ('curation curator?) _ ...) (if curator? #t #f)]))
+
 (define (process-login-credentials request)
   (define-form-bindings request (email password))
   (if (or (equal? (string-trim email) "")
@@ -341,8 +346,9 @@
          (login-form "Something went awry; please try again.")]
         [(or "emailed" #f)
          (summarise-code-emailing "Incorrect password, or nonexistent user." email)]
-        [else
-         (create-session! email password)])))
+        [success
+         (create-session! email password
+                          #:curator? (authentication-success->curator? success))])))
 
 (define (register-form #:email [email ""]
                        #:code [code ""]
@@ -415,10 +421,11 @@
        (retry "The code you entered was incorrect. Please try again.")]
       [(or "emailed" #f)
        (retry "Something went awry; you have been emailed another code. Please check your email.")]
-      [else
+      [success
        ;; The email and password combo we have been given is good to go.
        ;; Set a cookie and consider ourselves logged in.
-       (create-session! email password)])]))
+       (create-session! email password
+                        #:curator? (authentication-success->curator? success))])]))
 
 (define (notify-of-emailing request)
   (define-form-bindings request (email_for_code))
