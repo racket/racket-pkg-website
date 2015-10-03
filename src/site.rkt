@@ -189,6 +189,9 @@
                                      " "
                                      (span ((class "caret"))))
                                   (ul ((class "dropdown-menu") (role "menu"))
+                                      (li (a ((href ,(named-url update-my-packages-page)))
+                                             ,(glyphicon 'refresh) " Rescan all my packages"))
+                                      (li ((class "divider")))
                                       (li (a ((href ,(named-url edit-package-page)))
                                              ,(glyphicon 'plus-sign) " New package"))
                                       (li (a ((href ,(tags-page-url
@@ -196,9 +199,6 @@
                                                        (format "author:~a"
                                                                (session-email session))))))
                                              ,(glyphicon 'user) " My packages"))
-                                      (li ((class "divider")))
-                                      (li (a ((href ,(named-url update-my-packages-page)))
-                                             ,(glyphicon 'refresh) " Rescan all my packages"))
                                       (li ((class "divider")))
                                       (li (a ((href
                                                ,(login-or-register-url
