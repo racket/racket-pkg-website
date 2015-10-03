@@ -76,6 +76,7 @@
    [("package" (string-arg)) package-page]
    [("package" (string-arg) "edit") edit-package-page]
    [("update-my-packages") update-my-packages-page]
+   [("update-package-ring" (string-arg) (integer-arg)) #:method "post" update-package-ring-page]
    [("not-found") not-found-page]
    [("create") edit-package-page]
    [("login") login-page]
@@ -680,6 +681,21 @@
                    #f]))
               deps))
 
+(define (clamp-ring r)
+  (max 0 (min 2 r)))
+
+(define (ring-change-link pkg proposed-new-ring link-content)
+  (define new-ring (clamp-ring proposed-new-ring))
+  `(form ((role "form")
+          (class "ring-change-link")
+          (method "post")
+          (action ,(named-url update-package-ring-page (~a (package-name pkg)) new-ring)))
+         (button ((class "btn btn-danger btn-xs")
+                  ,@(maybe-splice
+                     (= new-ring (package-ring pkg))
+                     `(disabled "disabled"))
+                  (type "submit")) ,link-content)))
+
 (define (not-found-page request [package-name-str #f])
   (authentication-wrap
    #:request request
@@ -809,7 +825,14 @@
                   (tr (th "Last updated")
                       (td ,(utc->string (package-last-updated pkg))))
                   (tr (th "Ring")
-                      (td ,(~a (or (package-ring pkg) "N/A"))))
+                      (td ,(~a (or (package-ring pkg) "N/A"))
+                          ,@(maybe-splice
+                             (and (package-ring pkg)
+                                  (current-session)
+                                  (session-curator? (current-session)))
+                             " "
+                             (ring-change-link pkg (- (package-ring pkg) 1) 'blacktriangledown)
+                             (ring-change-link pkg (+ (package-ring pkg) 1) 'blacktriangle))))
                   (tr (th "Conflicts")
                       (td ,(package-links (package-conflicts pkg))))
                   (tr (th "Dependencies")
@@ -1266,6 +1289,22 @@
                             "scheduled for " ,(utc->string (/ (next-fetch-deadline) 1000))))
                        `(ul (li (a ((href ,(main-page-url)))
                                    "Return to the package index"))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (update-package-ring-page request package-name-str proposed-new-ring)
+  (define new-ring (clamp-ring proposed-new-ring))
+  (authentication-wrap/require-login
+   #:request request
+   (when (session-curator? (current-session))
+     (when (jsonp-rpc! "/jsonp/package/curate" `((pkg . ,package-name-str)
+                                                 (ring . ,(number->string new-ring))))
+       (define old-pkg (package-detail (string->symbol package-name-str)))
+       (let* ((new-pkg (hash-set old-pkg 'ring new-ring))
+              (completion-ch (make-channel)))
+         (replace-package! completion-ch old-pkg new-pkg)
+         (channel-get completion-ch))))
+   (bootstrap-redirect (view-package-url package-name-str))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

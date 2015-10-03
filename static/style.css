@@ -139,3 +139,8 @@ th.headerSortDown::after { content: " ▲"; }
 }
 .registration-step h1 { margin: 0.5em; }
 .registration-step p { font-size: 140%; }
+
+.ring-change-link {
+    display: inline-block;
+    padding: 0 0.15em;
+}
