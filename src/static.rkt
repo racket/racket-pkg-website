@@ -49,7 +49,8 @@
     (and p (config-path p))))
 
 (define pkg-index-generated-directory
-  (config-path (@ (config) pkg-index-generated-directory)))
+  (config-path (or (@ (config) pkg-index-generated-directory)
+                   (error 'pkg-index-generated-directory "Not specified"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Static rendering daemon -- Interface
@@ -260,4 +261,4 @@
 (define (extra-files-paths)
   (list static-generated-directory
         (config-path "../static")
-        (config-path pkg-index-generated-directory)))
+        pkg-index-generated-directory))

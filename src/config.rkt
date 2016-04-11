@@ -14,6 +14,8 @@
 
 (define-runtime-path here ".")
 (define (config-path str)
+  (unless (path-string? str)
+    (error 'config-path "Not given path string: ~e" str))
   (define p (if (relative-path? str)
                 (build-path here str)
                 str))
