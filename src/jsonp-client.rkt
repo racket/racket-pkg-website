@@ -44,20 +44,26 @@
   (define extraction-expr (format "^callback~a\\((.*)\\);$" stamp))
   (define parameters (cons (cons 'callback callback-label) original-parameters))
   (define baseurl (or (jsonp-baseurl) (error 'jsonp-rpc! "jsonp-baseurl is not set")))
-  (define request-url (string->url (format "~a~a?~a"
-                                           baseurl
-                                           site-relative-url
-                                           (alist->form-urlencoded parameters))))
+  (define request-url
+    (string->url
+     (format "~a~a?~a"
+             baseurl
+             site-relative-url
+             (alist->form-urlencoded parameters))))
+  (define req-headers
+    (if include-credentials?
+        (list
+         (make-basic-auth-credentials-header (session-email s)
+                                             (session-password s)))
+        null))
   (define-values (body-port response-headers)
     (if post-data
         (values (post-pure-port request-url
                                 post-data
-                                (list (make-basic-auth-credentials-header (session-email s)
-                                                                          (session-password s))))
+                                req-headers)
                 'unknown-response-headers-because-post-pure-port-doesnt-return-them)
         (get-pure-port/headers request-url
-                               (list (make-basic-auth-credentials-header (session-email s)
-                                                                         (session-password s))))))
+                               req-headers)))
   (define raw-response (port->string body-port))
   (match-define (pregexp extraction-expr (list _ json)) raw-response)
   (define reply (string->jsexpr json))
@@ -70,8 +76,8 @@
                           jsexpr-to-send)
   (define s (current-session))
   (if sensitive?
-      (log-info "simple-json-rpc: sensitive request ~a" site-relative-url)
-      (log-info "simple-json-rpc: request ~a params ~a~a"
+      (log-info "simple-json-rpc: sensitive request ~v" site-relative-url)
+      (log-info "simple-json-rpc: request ~v params ~v~a"
                 site-relative-url
                 jsexpr-to-send
                 (if include-credentials?
@@ -79,10 +85,16 @@
                         " +creds"
                         " +creds(missing)")
                     "")))
-  (define baseurl (or (jsonp-baseurl) (error 'simple-json-rpc! "jsonp-baseurl is not set")))
-  (define request-url (string->url (format "~a~a" baseurl site-relative-url)))
+  (define baseurl
+    (or (jsonp-baseurl) (error 'simple-json-rpc! "jsonp-baseurl is not set")))
+  (define request-urls (format "~a~a" baseurl site-relative-url))
+  (unless sensitive? (log-info "simple-json-rpc: urls: ~v" request-urls))
+  (define request-url (string->url request-urls))
+  (unless sensitive? (log-info "simple-json-rpc: url: ~v" request-url))
   (define post-data (string->bytes/utf-8 (jsexpr->string jsexpr-to-send)))
+  (unless sensitive? (log-info "simple-json-rpc: post-data: ~v" post-data))
   (define raw-response (port->string (post-pure-port request-url post-data)))
+  (unless sensitive? (log-info "simple-json-rpc: raw ~v" raw-response))
   (define reply (string->jsexpr raw-response))
-  (unless sensitive? (log-info "simple-json-rpc: reply ~a" reply))
+  (unless sensitive? (log-info "simple-json-rpc: reply ~v" reply))
   reply)

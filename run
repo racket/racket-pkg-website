@@ -16,4 +16,4 @@ PLTSTDERR=info
 export PLTSTDERR
 echo '============================================='
 cd src
-exec racket ../configs/${CONFIG}.rkt 2>&1
+exec ${RACKET}racket ../configs/${CONFIG}.rkt 2>&1

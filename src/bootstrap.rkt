@@ -2,6 +2,7 @@
 ;; Utilities for working with Twitter Bootstrap, http://getbootstrap.com/2.3.2/
 
 (provide bootstrap-static-urlprefix
+         bootstrap-dynamic-urlprefix
          bootstrap-project-name
          bootstrap-project-link
          bootstrap-navbar-header
@@ -27,6 +28,7 @@
 (require "xexpr-utils.rkt")
 
 (define bootstrap-static-urlprefix (make-parameter ""))
+(define bootstrap-dynamic-urlprefix (make-parameter ""))
 (define bootstrap-project-name (make-parameter "Project"))
 (define bootstrap-project-link (make-parameter "/"))
 (define bootstrap-navbar-header (make-parameter #f))
@@ -40,6 +42,8 @@
 
 (define (static str)
   (string-append (bootstrap-static-urlprefix) str))
+(define (dynamic str)
+  (string-append (bootstrap-dynamic-urlprefix) str))
 
 ;; String [#:title-element XExpr] [#:code Integer] [#:message Bytes] [XExpr ...] -> Response
 (define (bootstrap-response title
@@ -112,7 +116,7 @@
 
 ;; Request -> Response
 (define (bootstrap-continuation-expiry-handler request)
-  (bootstrap-redirect (url->string (strip-parameters (request-uri request)))))
+  (bootstrap-redirect (dynamic (url->string (strip-parameters (request-uri request))))))
 
 ;; URL -> URL
 (define (strip-parameters u)

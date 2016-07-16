@@ -37,6 +37,10 @@
   (or (@ (config) dynamic-urlprefix)
       ""))
 
+(define dynamic-static-urlprefix
+  (or (@ (config) dynamic-static-urlprefix)
+      ""))
+
 (define disable-cache?
   (or (@ (config) disable-cache?)
       #f))
@@ -89,7 +93,8 @@
    ))
 
 (define (on-continuation-expiry request)
-  (bootstrap-continuation-expiry-handler request))
+  (with-site-config
+    (bootstrap-continuation-expiry-handler request)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -111,7 +116,7 @@
 (define (static-resource-url suffix)
   (if (rendering-static-page?)
       (string-append static-urlprefix suffix)
-      suffix))
+      (string-append dynamic-static-urlprefix suffix)))
 
 (define-syntax-rule (authentication-wrap #:request request body ...)
   (authentication-wrap* #f request (lambda () body ...)))
@@ -123,11 +128,18 @@
   (parameterize ((bootstrap-navbar-header (navbar-header))
                  (bootstrap-navigation `((,nav-index ,(main-page-url))
                                          (,nav-search ,(named-url search-page))
-                                         ;; ((div ,(glyphicon 'download-alt)
-                                         ;;       " Download")
-                                         ;;  "http://download.racket-lang.org/")
+                                         ("About Package Builds" "https://pkg-build.racket-lang.org/about.html")
+                                         ("Documentation" "https://docs.racket-lang.org/")
+                                         ((div ,(glyphicon 'download-alt)
+                                               " Download Racket")
+                                          "http://download.racket-lang.org/")
                                          ))
-                 (bootstrap-static-urlprefix (if (rendering-static-page?) static-urlprefix ""))
+                 (bootstrap-static-urlprefix
+                  (if (rendering-static-page?)
+                      static-urlprefix
+                      dynamic-static-urlprefix))
+                 (bootstrap-dynamic-urlprefix
+                  dynamic-urlprefix)
                  (bootstrap-inline-js
                   (string-append (format "PkgSiteDynamicBaseUrl = '~a';" dynamic-urlprefix)
                                  (format "PkgSiteStaticBaseUrl = '~a';" static-urlprefix)
@@ -325,12 +337,12 @@
                             ,(form-group 4 5 (primary-button "Log in"))))))))
 
 (define (authenticate-with-server! email password code)
-  (simple-json-rpc! #:sensitive? #t
-                    #:include-credentials? #f
-                    "/api/authenticate"
-                    (hash 'email email
-                          'passwd password
-                          'code code)))
+  (jsonp-rpc! #:sensitive? #t
+              #:include-credentials? #f
+              "/jsonp/authenticate"
+              `((email . ,email)
+                (passwd . ,password)
+                (code . ,code))))
 
 (define (authentication-success->curator? success)
   (match success
@@ -343,7 +355,7 @@
           (equal? (string-trim password) ""))
       (login-form "Please enter your email address and password.")
       (match (authenticate-with-server! email password "")
-        ["wrong-code"
+        [(or "wrong-code" (? eof-object?))
          (login-form "Something went awry; please try again.")]
         [(or "emailed" #f)
          (summarise-code-emailing "Incorrect password, or nonexistent user." email)]
@@ -418,6 +430,8 @@
     (retry "Please enter a password.")]
    [else
     (match (authenticate-with-server! email password code)
+      [(? eof-object?)
+       (retry "Something went awry. Please try again.")]
       ["wrong-code"
        (retry "The code you entered was incorrect. Please try again.")]
       [(or "emailed" #f)
@@ -631,18 +645,10 @@
            #:title-element ""
            #:body-class "main-page"
            `(div ((class "jumbotron"))
-                 (h1 "BETA Racket Package Server")
+                 (h1 "Racket Packages")
                  (p "These are the packages in the official "
                     (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
                        "package catalog") ".")
-                 (p "This is a temporary database instance! While the information "
-                    "in the database is copied from the main Racket catalog, changes "
-                    "will NOT be propagated back to the main Racket catalog.")
-                 (p "Questions? Comments? Bugs? Email "
-                    (a ((href "mailto:tonyg@ccs.neu.edu")) "tonyg@ccs.neu.edu")
-                    " or twitter "
-                    (a ((href "https://twitter.com/leastfixedpoint")) "@leastfixedpoint")
-                    ".")
                  (p (a ((href "http://docs.racket-lang.org/pkg/cmdline.html"))
                        (kbd "raco pkg install " (var "package-name")))
                     " installs a package.")
@@ -660,7 +666,13 @@
            `(div
              (p ((class "package-count"))
                 ,(format "~a packages" (length package-name-list)))
-             ,(package-summary-table package-name-list)))))))
+             ,(package-summary-table package-name-list))
+           `(div ((class "jumbotron"))
+                 (p "Questions? Comments? Bugs? Email "
+                    (a ((href "mailto:tonyg@ccs.neu.edu")) "tonyg@ccs.neu.edu")
+                    " or "
+                    (a ((href "mailto:jay.mccarthy@gmail.com")) "jay.mccarthy@gmail.com")
+                    ".")))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

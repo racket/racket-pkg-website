@@ -168,6 +168,14 @@
   (assert-absolute! 'absolute-path->relative-path absolute-path)
   (substring absolute-path 1))
 
+(define put-bytes-sema (make-semaphore 10))
+(define (put/bytes^ p cb mt h)
+  (semaphore-wait put-bytes-sema)
+  (thread
+   (λ ()
+     (put/bytes p cb mt h)
+     (semaphore-post put-bytes-sema))))
+
 (define (aws-put-file! index absolute-path content-bytes mime-type [headers '()])
   (define relative-path (absolute-path->relative-path absolute-path))
   (define new-md5 (md5 content-bytes))
@@ -177,10 +185,11 @@
         (void))
       (begin
         (log-info "Uploading ~a to S3; new MD5 = ~a" relative-path new-md5)
-        (put/bytes (string-append aws-s3-bucket+path relative-path)
-                   content-bytes
-                   mime-type
-                   headers)))
+        (put/bytes^ (string-append aws-s3-bucket+path relative-path)
+                    content-bytes
+                    mime-type
+                    (cons (cons 'x-amz-acl "public-read")
+                          headers))))
   (hash-set index relative-path new-md5))
 
 (define (extension-map p)

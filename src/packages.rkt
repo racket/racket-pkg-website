@@ -53,14 +53,18 @@
 (define (fetch-remote-packages)
   (log-info "Fetching package list from ~a" package-index-url)
   (define result
-    (with-handlers ((exn:fail? (lambda (e) #f)))
-      (define response-bytes (port->bytes (get-pure-port (string->url package-index-url))))
+    (with-handlers ([exn:fail?
+                     (lambda (e)
+                       ((error-display-handler) (exn-message e) e)
+                       #f)])
+      (define response-bytes
+        (port->bytes (get-pure-port (string->url package-index-url))))
       (define decompressed (gunzip/bytes response-bytes))
       (define decoded (bytes->jsexpr decompressed))
       decoded))
   (if (hash? result)
       (log-info "Fetched package list containing ~a packages." (hash-count result))
-      (log-info "Fetched bogus package list"))
+      (log-info "Fetched bogus package list: ~e" result))
   result)
 
 (define (tombstone? pkg)
