@@ -1396,9 +1396,11 @@
                                         package-name
                                         (exn->string e))
                                        "")])
-                      (port->string
-                       (get-pure-port (string->url (@ default-version source_url))
-                                      #:redirections 10)))))
+                      (define the-port
+                        (get-pure-port (string->url (@ default-version source_url))
+                                      #:redirections 10))
+                      (begin0 (port->string the-port)
+                        (close-input-port the-port)))))
                ;;(log-info "CONTENTS: ~a === ~a" (@ default-version source_url) contents)
                (if (regexp-match? #px"(?i:id=.readme.)" contents)
                    (let ((readme-url (string-append (@ default-version source_url) "#readme")))

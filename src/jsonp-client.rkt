@@ -44,12 +44,12 @@
   (define extraction-expr (format "^callback~a\\((.*)\\);$" stamp))
   (define parameters (cons (cons 'callback callback-label) original-parameters))
   (define baseurl (or (jsonp-baseurl) (error 'jsonp-rpc! "jsonp-baseurl is not set")))
-  (define request-url
-    (string->url
-     (format "~a~a?~a"
+  (define request-urls
+    (format "~a~a?~a"
              baseurl
              site-relative-url
-             (alist->form-urlencoded parameters))))
+             (alist->form-urlencoded parameters)))
+  (define request-url (string->url request-urls))
   (define req-headers
     (if include-credentials?
         (list
@@ -65,10 +65,16 @@
         (get-pure-port/headers request-url
                                req-headers)))
   (define raw-response (port->string body-port))
-  (match-define (pregexp extraction-expr (list _ json)) raw-response)
-  (define reply (string->jsexpr json))
-  (unless sensitive? (log-info "jsonp-rpc: reply ~a" reply))
-  reply)
+  (close-input-port body-port)
+  (match raw-response
+    [(pregexp extraction-expr (list _ json))
+     (define reply (string->jsexpr json))
+     (unless sensitive? (log-info "jsonp-rpc: reply ~a" reply))
+     reply]
+    [x
+     (error 'jsonp-rpc! "Illegal response to ~v: ~v"
+            (if sensitive? "REDACTED" request-urls)
+            (if sensitive? "REDACTED" raw-response))]))
 
 (define (simple-json-rpc! #:sensitive? [sensitive? #f]
                           #:include-credentials? [include-credentials? #t]
@@ -96,6 +102,9 @@
                                                   (session-password s)))
         '()))
   (define raw-response (port->string (post-pure-port request-url post-data req-headers)))
+  (define response-port (post-pure-port request-url post-data req-headers))
+  (define raw-response (port->string response-port))
+  (close-input-port response-port)
   (define reply (string->jsexpr raw-response))
   (unless sensitive? (log-info "simple-json-rpc: reply ~v" reply))
   reply)

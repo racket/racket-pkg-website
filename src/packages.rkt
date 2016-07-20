@@ -57,8 +57,10 @@
                      (lambda (e)
                        ((error-display-handler) (exn-message e) e)
                        #f)])
-      (define response-bytes
-        (port->bytes (get-pure-port (string->url package-index-url))))
+      (define response-port
+        (get-pure-port (string->url package-index-url)))
+      (define response-bytes (port->bytes response-port))
+      (close-input-port response-port)
       (define decompressed (gunzip/bytes response-bytes))
       (define decoded (bytes->jsexpr decompressed))
       decoded))
