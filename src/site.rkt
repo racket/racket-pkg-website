@@ -45,7 +45,7 @@
   (or (@ (config) disable-cache?)
       #f))
 
-(define nav-index "Package Index")
+(define nav-index "Packages")
 (define nav-search "Search")
 
 (define (navbar-header)
