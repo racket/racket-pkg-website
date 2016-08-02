@@ -88,13 +88,9 @@
   (define baseurl
     (or (jsonp-baseurl) (error 'simple-json-rpc! "jsonp-baseurl is not set")))
   (define request-urls (format "~a~a" baseurl site-relative-url))
-  (unless sensitive? (log-info "simple-json-rpc: urls: ~v" request-urls))
   (define request-url (string->url request-urls))
-  (unless sensitive? (log-info "simple-json-rpc: url: ~v" request-url))
   (define post-data (string->bytes/utf-8 (jsexpr->string jsexpr-to-send)))
-  (unless sensitive? (log-info "simple-json-rpc: post-data: ~v" post-data))
   (define raw-response (port->string (post-pure-port request-url post-data)))
-  (unless sensitive? (log-info "simple-json-rpc: raw ~v" raw-response))
   (define reply (string->jsexpr raw-response))
   (unless sensitive? (log-info "simple-json-rpc: reply ~v" reply))
   reply)
