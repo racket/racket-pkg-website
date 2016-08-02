@@ -172,9 +172,12 @@
 (define (put/bytes^ p cb mt h)
   (semaphore-wait put-bytes-sema)
   (thread
-   (λ ()
-     (put/bytes p cb mt h)
-     (semaphore-post put-bytes-sema))))
+   (lambda ()
+     (with-handlers ((values (lambda (e)
+                               (semaphore-post put-bytes-sema)
+                               (raise e))))
+       (put/bytes p cb mt h)
+       (semaphore-post put-bytes-sema)))))
 
 (define (aws-put-file! index absolute-path content-bytes mime-type [headers '()])
   (define relative-path (absolute-path->relative-path absolute-path))
