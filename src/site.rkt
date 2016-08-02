@@ -126,14 +126,18 @@
 
 (define-syntax-rule (with-site-config body ...)
   (parameterize ((bootstrap-navbar-header (navbar-header))
-                 (bootstrap-navigation `((,nav-index ,(main-page-url))
-                                         (,nav-search ,(named-url search-page))
-                                         ("About Package Builds" "https://pkg-build.racket-lang.org/about.html")
-                                         ("Documentation" "https://docs.racket-lang.org/")
-                                         ((div ,(glyphicon 'download-alt)
-                                               " Download Racket")
-                                          "http://download.racket-lang.org/")
-                                         ))
+                 (bootstrap-navigation
+                  `((,nav-index ,(main-page-url))
+                    ("Documentation" "https://docs.racket-lang.org/")
+                    (,nav-search ,(named-url search-page))
+                    ("About"
+                     (("The Racket Package System"
+                       "http://docs.racket-lang.org/pkg/getting-started.html")
+                      ("Package Builds" "https://pkg-build.racket-lang.org/about.html")))
+                    ((div ,(glyphicon 'download-alt)
+                          " Download Racket")
+                     "http://download.racket-lang.org/")
+                    ))
                  (bootstrap-static-urlprefix
                   (if (rendering-static-page?)
                       static-urlprefix

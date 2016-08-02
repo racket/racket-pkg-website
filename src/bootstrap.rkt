@@ -85,11 +85,7 @@
                             ,(bootstrap-project-name))))
 		(div ((id "navbar") (class "collapse navbar-collapse"))
 		     (ul ((class "nav navbar-nav"))
-			 ,@(for/list ((n (bootstrap-navigation)))
-			     (match-define (list text url) n)
-			     `(li ,@(maybe-splice (equal? text (bootstrap-active-navigation))
-                                                  `((class "active")))
-				  (a ((href ,url)) ,text))))
+                         ,@(render-nav-items (bootstrap-navigation)))
                      ,@(bootstrap-navbar-extension)
                      )))
       (div ((class "container"))
@@ -104,6 +100,28 @@
       (script ((type "text/javascript") (src ,(static "/site.js"))))
       ,@(for/list ((script (bootstrap-page-scripts)))
           `(script ((type "text/javascript") (src ,script))))))))
+
+(define (render-nav-items items)
+  (for/list ((n items))
+    (match n
+      [(list text (? string? url))
+       `(li ,@(maybe-splice (equal? text (bootstrap-active-navigation))
+                            `((class "active")))
+            (a ((href ,url)) ,text))]
+      ['separator
+       `(li ((role "separator") (class "divider")))]
+      [(list text (? list? subitems))
+       `(li ((class "dropdown"))
+            (a ((href "#")
+                (class "dropdown-toggle")
+                (data-toggle "dropdown")
+                (role "button")
+                (aria-haspopup "true")
+                (aria-expanded "false"))
+               ,text
+               (span ((class "caret"))))
+            (ul ((class "dropdown-menu"))
+                ,@(render-nav-items subitems)))])))
 
 ;; String [#:permanent? Boolean] [#:headers (Listof Header)] -> Response
 (define (bootstrap-redirect url
