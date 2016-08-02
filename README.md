@@ -23,7 +23,7 @@ a hashtable to `main`.
 Keys useful for deployment:
 
  - *port*: number; default the value of the `SITE_PORT` environment
-   variable, if defined; otherwise, 8443.
+   variable, if defined; otherwise, 7443.
  - *ssl?*: boolean; default `#t`.
  - *reloadable?*: boolean; `#t` if the `SITE_RELOADABLE` environment
    variable is defined; otherwise, `#f`.

@@ -11,7 +11,7 @@
   (void (make-reloadable-entry-point 'rerender-all! "site.rkt"))
   (start-service #:port (hash-ref config 'port (lambda ()
                                                  (let ((port-str (getenv "SITE_PORT")))
-                                                   (if port-str (string->number port-str) 8443))))
+                                                   (if port-str (string->number port-str) 7443))))
                  #:ssl? (hash-ref config 'ssl? (lambda () #t))
                  #:reloadable? (hash-ref config 'reloadable? (lambda () (getenv "SITE_RELOADABLE")))
                  (make-reloadable-entry-point 'request-handler "site.rkt")

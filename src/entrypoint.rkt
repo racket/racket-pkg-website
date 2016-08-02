@@ -10,7 +10,7 @@
 (require "signals.rkt")
 (require "daemon.rkt")
 
-(define (start-service* #:port [port 8443]
+(define (start-service* #:port [port 7443]
                         #:ssl? [ssl? #t]
                         request-handler-function
                         on-continuation-expiry
@@ -34,7 +34,7 @@
                      #:ssl-key (and ssl? (build-path (current-directory) "../private-key.pem"))
                      #:servlet-regexp #rx"")))))
 
-(define (start-service #:port [port 8443]
+(define (start-service #:port [port 7443]
                        #:ssl? [ssl? #t]
                        #:reloadable? [reloadable? #t]
                        request-handler-entry-point
