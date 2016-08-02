@@ -9,8 +9,8 @@
 ;; Boolean XExpr ... -> (Listof XExpr)
 ;; Useful for optionally splicing in some contents to a list.
 ;; If the guard is true, returns the contents; otherwise returns the empty list.
-(define (maybe-splice guard . contents)
-  (if guard contents '()))
+(define-syntax-rule (maybe-splice guard contents ...)
+  (if guard (list contents ...) '()))
 
 ;; Extracts named single-valued bindings from the given request.
 ;; If a given binding is missing, the extracted value will be #f.
