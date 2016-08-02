@@ -337,12 +337,12 @@
                             ,(form-group 4 5 (primary-button "Log in"))))))))
 
 (define (authenticate-with-server! email password code)
-  (jsonp-rpc! #:sensitive? #t
-              #:include-credentials? #f
-              "/jsonp/authenticate"
-              `((email . ,email)
-                (passwd . ,password)
-                (code . ,code))))
+  (simple-json-rpc! #:sensitive? #t
+                    #:include-credentials? #f
+                    "/api/authenticate"
+                    (hash 'email email
+                          'passwd password
+                          'code code)))
 
 (define (authentication-success->curator? success)
   (match success
