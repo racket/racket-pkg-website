@@ -90,7 +90,12 @@
   (define request-urls (format "~a~a" baseurl site-relative-url))
   (define request-url (string->url request-urls))
   (define post-data (string->bytes/utf-8 (jsexpr->string jsexpr-to-send)))
-  (define raw-response (port->string (post-pure-port request-url post-data)))
+  (define req-headers
+    (if include-credentials?
+        (list (make-basic-auth-credentials-header (session-email s)
+                                                  (session-password s)))
+        '()))
+  (define raw-response (port->string (post-pure-port request-url post-data req-headers)))
   (define reply (string->jsexpr raw-response))
   (unless sensitive? (log-info "simple-json-rpc: reply ~v" reply))
   reply)
