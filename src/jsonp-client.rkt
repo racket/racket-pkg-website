@@ -101,7 +101,6 @@
         (list (make-basic-auth-credentials-header (session-email s)
                                                   (session-password s)))
         '()))
-  (define raw-response (port->string (post-pure-port request-url post-data req-headers)))
   (define response-port (post-pure-port request-url post-data req-headers))
   (define raw-response (port->string response-port))
   (close-input-port response-port)
