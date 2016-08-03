@@ -1187,18 +1187,14 @@
   (and (or (equal? old-name name)
            ;; Don't let renames stomp on existing packages
            (not (package-detail (string->symbol name))))
-       (jsonp-rpc! "/jsonp/package/modify-all"
-                   '()
-                   #:post-data
-                   (string->bytes/utf-8
-                    (jsexpr->string
-                     (hash 'pkg old-name
-                           'name name
-                           'description description
-                           'source source
-                           'tags tags
-                           'authors authors
-                           'versions versions))))
+       (eq? #t (simple-json-rpc! "/api/package/modify-all"
+                                 (hash 'pkg old-name
+                                       'name name
+                                       'description description
+                                       'source source
+                                       'tags tags
+                                       'authors authors
+                                       'versions versions)))
        (let* ((new-pkg (or old-pkg (hash)))
               (new-pkg (hash-set new-pkg 'name name))
               (new-pkg (hash-set new-pkg 'description description))
