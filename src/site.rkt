@@ -1027,7 +1027,7 @@
                                ,(glyphicon 'plus-sign) " Add new version"))))
           ))
 
-      (parameterize ((bootstrap-page-scripts '("/editpackage.js")))
+      (parameterize ((bootstrap-page-scripts (list (static-resource-url "/editpackage.js"))))
         (define old-name (draft-package-old-name draft))
         (define has-old-name? (not (equal? old-name "")))
         (bootstrap-response (if has-old-name?
@@ -1322,7 +1322,7 @@
 
 (define (search-page request)
   (parameterize ((bootstrap-active-navigation nav-search)
-                 (bootstrap-page-scripts '("/searchbox.js")))
+                 (bootstrap-page-scripts (list (static-resource-url "/searchbox.js"))))
     (authentication-wrap
      #:request request
      (define-form-bindings request ([search-text q ""]
