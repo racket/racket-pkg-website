@@ -18,34 +18,30 @@ function preenSourceType(e) {
     }
     return control(e, n).val();
   }
-  function showhide(s, gh, gu, gp, gb) {
+  function showhide(s, gt, gh, gr, gc, gp) {
     return [showhide1("simple_url", s),
-	    showhide1("g_host", gh),
-	    showhide1("g_user", gu),
-	    showhide1("g_project", gp),
-	    showhide1("g_branch", gb)];
+	    showhide1("g_transport", gt),
+	    showhide1("g_host_port", gh),
+	    showhide1("g_repo", gr),
+	    showhide1("g_commit", gc),
+	    showhide1("g_path", gp)];
   }
   var pieces;
   var previewUrl;
   var previewGroup = control(e, "urlpreview__group");
   var previewInput = control(e, "urlpreview");
   switch (e.value) {
-    case "github":
-      previewGroup.show();
-      pieces = showhide(false, false, true, true, true);
-      previewUrl = "github://github.com/" + pieces[2] + "/" + pieces[3] +
-                   (pieces[4] ? "/" + pieces[4] : "");
-      break;
     case "git":
       previewGroup.show();
-      pieces = showhide(false, true, true, true, true);
-      previewUrl = "git://" + pieces[1] + "/" + pieces[2] + "/" + pieces[3] +
-                   (pieces[4] ? "/" + pieces[4] : "");
+      pieces = showhide(false, true, true, true, true, true);
+      previewUrl = pieces[1] + "://" + pieces[2] + "/" + pieces[3] +
+        (pieces[5] ? "?path=" + pieces[5] : "") +
+        (pieces[4] && (pieces[4] !== 'master') ? '#' + pieces[4] : "");
       break;
     case "simple":
     default:
       previewGroup.hide();
-      pieces = showhide(true, false, false, false, false);
+      pieces = showhide(true, false, false, false, false, false);
       previewUrl = pieces[0];
       break;
   }
@@ -74,7 +70,7 @@ $(document).ready(function () {
   $(".package-version-source-type").each(function (index, e) {
     var preenE = function () { preenSourceType(e); };
     $(e).change(preenE);
-    var names = ['simple_url', 'g_host', 'g_user', 'g_project', 'g_branch'];
+    var names = ['simple_url', 'g_transport', 'g_host_port', 'g_repo', 'g_commit', 'g_path'];
     for (var i = 0; i < names.length; i++) {
       control(e, names[i]).change(preenE).keyup(preenE);
     }

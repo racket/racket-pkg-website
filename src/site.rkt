@@ -28,6 +28,7 @@
 (require "config.rkt")
 (require "hash-utils.rkt")
 (require "static.rkt")
+(require "package-source.rkt")
 
 (define static-urlprefix
   (or (@ (config) static-urlprefix)
@@ -58,7 +59,9 @@
   (or (@ (config) backend-baseurl)
       "https://pkgd.racket-lang.org"))
 
-(define default-empty-source-url "git://github.com//")
+(define default-empty-parsed-package-source
+  (git-source "git://github.com/" #f 'git 'git "github.com" #f "" "" ""))
+
 (define COOKIE "pltsession")
 
 (define recent-seconds
@@ -801,7 +804,7 @@
                               ;;      " Download")
                               )
                           `(a ((class "btn btn-default btn-lg")
-                               (href ,(@ default-version source_url)))
+                               (href ,(package-source->human-tree-url (@ default-version source))))
                               ,(glyphicon 'link) " Code"))
 
                      ,@(maybe-splice
@@ -895,7 +898,8 @@
                                              (((version-sym v) (in-hash vs)))
                                            `(tr
                                              (td ,(~a version-sym))
-                                             (td (a ((href ,(@ v source_url)))
+                                             (td (a ((href ,(package-source->human-tree-url
+                                                             (@ v source))))
                                                     ,(@ v source)))
                                              (td ,(@ v checksum)))))))))
                   (tr (th "Last checked")
@@ -927,7 +931,7 @@
                                      ""
                                      (list (current-email))
                                      '()
-                                     `(("default" ,default-empty-source-url))))]
+                                     `(("default" ,default-empty-parsed-package-source))))]
     [else
      (package-form #f
                    (draft-package package-name-str
@@ -936,7 +940,9 @@
                                   (package-authors pkg)
                                   (package-tags pkg)
                                   (for/list (((ver info) (in-hash (package-versions pkg))))
-                                    (list (symbol->string ver) (@ info source)))))])))
+                                    (define-values (parsed complaints)
+                                      (parse-package-source (@ info source)))
+                                    (list (symbol->string ver) parsed))))])))
 
 (define (package-source-option source-type value label)
   `(option ((value ,value)
@@ -958,7 +964,7 @@
               (th "Source"))
           ,@(for/list ((v (put-default-first
                            (draft-package-versions draft))))
-              (match-define (list version source) v)
+              (match-define (list version parsed-source) v)
               (define (control-name c) (format "version__~a__~a" version c))
               (define (group-name c) (format "version__~a__~a__group" version c))
               (define (textfield name label-text value [placeholder ""])
@@ -967,16 +973,27 @@
                      (and label-text (label (control-name name) label-text))
                      0 (if label-text 9 12)
                      (text-input (control-name name) value #:placeholder placeholder)))
-              (define-values (source-type simple-url g-host g-user g-project g-branch)
-                (match source
-                  [(pregexp #px"github://github\\.com/([^/]*)/([^/]*)(/([^/]*)/?)?"
-                            (list _ u p _ b))
-                   (values "github" "" "github.com" u p (if (equal? b "master") "" (or b #f)))]
-                  [(pregexp #px"git://([^/]*)/([^/]*)/([^/]*)(/([^/]*)/?)?"
-                            (list _ h u p _ b))
-                   (values "git" "" h u p (if (equal? b "master") "" (or b "")))]
-                  [_
-                   (values "simple" source "" "" "" "")]))
+              (define-values (source-type simple-url g-transport g-host+port g-repo g-commit g-path)
+                (match parsed-source
+                  [#f
+                   (values "simple" "" "" "" "" "" "")]
+                  [(simple-url-source u _ _)
+                   (values "simple" u "" "" "" "" "")]
+                  [(git-source _ _ _ tr host port repo c path)
+                   (values "git"
+                           ""
+                           (symbol->string tr)
+                           (match* (tr port)
+                             [(_ #f) host]
+                             [(http 80) host]
+                             [(https 443) host]
+                             [(git 9418) host]
+                             [(_ _) (format "~a:~a" host port)])
+                           repo
+                           (match c
+                             ["master" ""]
+                             [_ c])
+                           path)]))
               `(tr
                 (td ,version
                     ,@(maybe-splice
@@ -993,9 +1010,6 @@
                                      (data-packageversion ,version)
                                      (name ,(control-name "type")))
                                     ,(package-source-option source-type
-                                                            "github"
-                                                            "Github Repository")
-                                    ,(package-source-option source-type
                                                             "git"
                                                             "Git Repository")
                                     ,(package-source-option source-type
@@ -1011,10 +1025,21 @@
                                              (disabled "disabled")
                                              (id ,(control-name "urlpreview"))))))
                             ,(textfield "simple_url" #f simple-url)
-                            ,(textfield "g_host" "Repo Host" g-host)
-                            ,(textfield "g_user" "Repo User" g-user)
-                            ,(textfield "g_project" "Repo Project" g-project)
-                            ,(textfield "g_branch" "Repo Branch" g-branch "master"))))))
+                            ,(textfield "g_host_port" "Host" g-host+port)
+                            ,(textfield "g_repo" "Repository" g-repo "user/repo")
+                            ,(textfield "g_commit" "Branch or commit" g-commit "master")
+                            ,(textfield "g_path" "Path within repository" g-path)
+                            ,(row #:id (group-name "g_transport")
+                                  0 3
+                                  (label (control-name "g_transport") "Transport")
+                                  0 9
+                                  `(select ((id ,(control-name "g_transport"))
+                                            (name ,(control-name "g_transport")))
+                                           ,@(for/list [(t (list "git" "https" "http"))]
+                                               `(option ((value ,t)
+                                                         ,@(maybe-splice (equal? t g-transport)
+                                                                         '(selected "selected")))
+                                                        ,t)))))))))
 
           (tr (td ((colspan "2"))
                   (div ((class "form-inline"))
@@ -1130,13 +1155,13 @@
                      draft)]
       [else
        (package-form #f (struct-copy draft-package draft
-                                     [versions (cons (list new_version default-empty-source-url)
-                                                     (draft-package-versions draft))]))])]
+                          [versions (cons (list new_version default-empty-parsed-package-source)
+                                          (draft-package-versions draft))]))])]
     [(regexp #px"^version__(.*)__delete$" (list _ version))
      (package-form #f (struct-copy draft-package draft
-                                   [versions (filter (lambda (v)
-                                                       (not (equal? (car v) version)))
-                                                     (draft-package-versions draft))]))]))
+                        [versions (filter (lambda (v)
+                                            (not (equal? (car v) version)))
+                                          (draft-package-versions draft))]))]))
 
 (define (read-draft-form draft bindings)
   (define (g key d)
@@ -1147,15 +1172,33 @@
       (g (string->symbol (format "version__~a__~a" version name)) d))
     (define type (vg 'type "simple"))
     (define simple_url (vg 'simple_url ""))
-    (define g_host (vg 'g_host ""))
-    (define g_user (vg 'g_user ""))
-    (define g_project (vg 'g_project ""))
-    (define g_branch0 (vg 'g_branch ""))
-    (define g_branch (if (equal? g_branch0 "") "master" g_branch0))
-    (match type
-      ["github" (format "github://github.com/~a/~a/~a" g_user g_project g_branch)]
-      ["git"    (format "git://~a/~a/~a/~a" g_host g_user g_project g_branch)]
-      ["simple" simple_url]))
+    (define g_transport (vg 'g_transport ""))
+    (define g_host_port (vg 'g_host_port ""))
+    (define g_repo0 (vg 'g_repo ""))
+    (define g_repo (cond
+                     [(regexp-match #rx"[.]git$" g_repo0) g_repo0]
+                     [(equal? g_transport "git") g_repo0]
+                     [else (string-append g_repo0 ".git")]))
+    (define g_commit0 (vg 'g_commit ""))
+    (define g_path (vg 'g_path ""))
+    (define g_commit (if (equal? g_commit0 "") "master" g_commit0))
+    (define-values (g_host g_port)
+      (match (string-split g_host_port ":")
+        [(list host) (values host #f)]
+        [(list host (? string->number port)) (values host (string->number port))]
+        [_ (values "" #f)]))
+    (define source
+      (match type
+        ["simple" simple_url]
+        ["git" (unparse-package-source (git-source "" #f #f
+                                                   (string->symbol g_transport)
+                                                   g_host
+                                                   g_port
+                                                   g_repo
+                                                   g_commit
+                                                   g_path))]))
+    (define-values (parsed complaints) (parse-package-source source))
+    parsed)
   (struct-copy draft-package draft
                [name (g 'name (draft-package-old-name draft))]
                [description (g 'description "")]
@@ -1175,7 +1218,7 @@
 (define (save-draft! draft)
   (match-define (draft-package old-name name description authors tags versions/default) draft)
   (define default-version (assoc "default" versions/default))
-  (define source (cadr default-version))
+  (define source (unparse-package-source (cadr default-version)))
   (define versions (remove default-version versions/default))
   (define old-pkg (package-detail (string->symbol old-name)))
   ;; name, description, and default source are updateable via /jsonp/package/modify.
@@ -1240,53 +1283,16 @@
 
 (define (friendly-versions draft-versions)
   (for/hash ((v draft-versions))
-    (match-define (list version source) v)
+    (match-define (list version parsed) v)
     (values (string->symbol version)
             (hash 'checksum ""
-                  'source source
-                  'source_url (package-url->useful-url source)))))
-
-;; Copied from meta/pkg-index/official/static.rkt
-;; Modified slightly to recognise additional ad-hockery
-;; e.g. git://github.com/user/repo/ as well as
-;;      git://github.com/user/repo  (note no trailing slash)
-;;
-;; N.B. this code is currently only used for the version of a package
-;; just after saving it locally, before the package server catches up!
-;; The package server uses its own version of this code and generates
-;; its own source_url. In principle, TODO: ignore source_url from the
-;; package server in cases where this code can do better. (Perhaps
-;; fall back to the source_url from the package server.)
-;;
-(define (package-url->useful-url pkg-url-str)
-    (define pkg-url
-      (string->url pkg-url-str))
-    (match (url-scheme pkg-url)
-      ["github"
-       (match (url-path pkg-url)
-         [(list* user repo branch path)
-          (url->string
-           (struct-copy
-            url pkg-url
-            [scheme "http"]
-            [path (list* user repo (path/param "tree" '()) branch path)]))]
-         [_
-          pkg-url-str])]
-      ["git"
-       (match (map path/param-path (url-path pkg-url))
-         ;; xxx make this more robust
-         [(or (list user repo)
-              (list user repo ""))
-          (url->string
-           (struct-copy
-            url pkg-url
-            [scheme "http"]
-            [path (map (lambda (x) (path/param x '()))
-                       (list user repo "tree" "master"))]))]
-         [_
-          pkg-url-str])]
-      [_
-       pkg-url-str]))
+                  'source (unparse-package-source parsed)
+                  ;; N.B. the source_url setting here survives only while we have saved it
+                  ;; locally, before the package server catches up! The package server
+                  ;; uses its own version of this code and generates its own source_url.
+                  ;; However, we ignore source_url from the package server now that
+                  ;; parsed-package-source-human-tree-url can do better.
+                  'source_url (parsed-package-source-human-tree-url parsed)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
