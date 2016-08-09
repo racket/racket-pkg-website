@@ -123,6 +123,43 @@ To enable replication, set configuration variable
 set `static-content-update-hook` to a string containing a shell
 command to execute every time the static content is updated.
 
+#### S3 Content
+
+To set up an S3 bucket---let's call it `s3.example`---for use with
+this site, follow these steps:
+
+ 0. Create the bucket ("`s3.example`")
+ 0. Optionally add a CNAME record to DNS mapping `s3.example` to
+    `s3.example.s3-website-us-east-1.amazonaws.com`. If you do, static
+    resources will be available at `http://s3.example/`; if not, at
+    the longer URL.
+ 0. Enable "Static Website Hosting" for the bucket. Set the index
+    document to `index.html` and the error document to `not-found`.
+
+Then, under "Permissions", click "Add bucket policy", and add
+something like the following.
+
+    {
+      "Id": "RacketPackageWebsiteS3Policy",
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "RacketPackageWebsiteS3PolicyStmt1",
+          "Action": "s3:*",
+          "Effect": "Allow",
+          "Resource": ["arn:aws:s3:::s3.example",
+                       "arn:aws:s3:::s3.example/*"],
+          "Principal": {
+            "AWS": ["<<<ARN OF THE USER TO WHOM ACCESS SHOULD BE GRANTED>>>"]
+          }
+        }
+      ]
+    }
+
+The user will need to be able to read and write objects and set CORS
+policy. (CORS is configured automatically by code in
+`src/static.rkt`.)
+
 ### Supervision
 
 Startable using djb's [daemontools](http://cr.yp.to/daemontools.html);

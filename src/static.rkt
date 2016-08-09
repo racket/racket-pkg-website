@@ -17,6 +17,7 @@
 (require web-server/http/request-structs)
 (require web-server/http/response-structs)
 (require file/md5)
+(require xml)
 (require xml/path)
 (require net/url)
 (require aws/s3)
@@ -219,7 +220,19 @@
                    (file->bytes filepath)
                    (extension-map filepath))))
 
+(define (configure-s3-cors!)
+  (log-info "Configuring S3 CORS headers:\n~a"
+            (put/bytes (string-append aws-s3-bucket+path "?cors")
+                       (string->bytes/utf-8 (xexpr->string
+                                             `(CORSConfiguration
+                                               (CORSRule (AllowedOrigin "*")
+                                                         (AllowedMethod "GET")
+                                                         (AllowedHeader "*")))))
+                       "application/xml"
+                       '())))
+
 (define (static-renderer-aws-s3 index)
+  (when (not index) (configure-s3-cors!))
   (let ((index (or index (initial-aws-s3-index))))
     (match
         (rpc-handler (sync (rpc-request-evt))
