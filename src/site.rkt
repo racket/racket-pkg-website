@@ -551,17 +551,17 @@
 ;; TODO factor this stuff out into a proper data structure
 
 ;; Mandatory -- never #f
-(define (package-name pkg)                  (@ pkg name))
+(define (package-name pkg)                   (@ pkg name))
 
 ;; Optional -- sometimes #f
-(define (package-build-failure-log pkg)     (@ pkg build failure-log))
-(define (package-build-success-log pkg)     (@ pkg build success-log))
+(define (package-build-failure-log pkg)      (@ pkg build failure-log))
+(define (package-build-success-log pkg)      (@ pkg build success-log))
 (define (package-build-test-failure-log pkg) (@ pkg build test-failure-log))
 (define (package-build-test-success-log pkg) (@ pkg build test-success-log))
-(define (package-build-dep-failure-log pkg) (@ pkg build dep-failure-log))
-(define (package-build-conflicts-log pkg)   (@ pkg build conflicts-log))
-(define (package-ring pkg)                  (@ pkg ring))
-(define (package-checksum-error pkg)        (@ pkg checksum-error))
+(define (package-build-dep-failure-log pkg)  (@ pkg build dep-failure-log))
+(define (package-build-conflicts-log pkg)    (@ pkg build conflicts-log))
+(define (package-ring pkg)                   (@ pkg ring))
+(define (package-checksum-error pkg)         (@ pkg checksum-error))
 
 (define (package-readme-url pkg)
   (@ (package-external-information (string->symbol (@ pkg name))) readme-url))
