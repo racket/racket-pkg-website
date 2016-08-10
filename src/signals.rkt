@@ -39,8 +39,9 @@
                     reload!)
        (poll-signal "../signals/.fetchindex"
                     "Index refresh signal received"
-                    (reloadable-entry-point->procedure
-                     (lookup-reloadable-entry-point 'refresh-packages! "packages.rkt")))
+                    (lambda ()
+                      (reloadable-entry-point->procedure
+                       (lookup-reloadable-entry-point 'refresh-packages! "packages.rkt"))))
        (poll-signal "../signals/.rerender"
                     "Static rerender request received"
                     (lambda (request-body)
