@@ -13,6 +13,7 @@
          bootstrap-page-scripts
          bootstrap-cookies
          bootstrap-inline-js
+         bootstrap-head-extra
 
          bootstrap-response
 	 bootstrap-redirect
@@ -39,6 +40,7 @@
 (define bootstrap-page-scripts (make-parameter '()))
 (define bootstrap-cookies (make-parameter '()))
 (define bootstrap-inline-js (make-parameter #f))
+(define bootstrap-head-extra (make-parameter '()))
 
 (define (static str)
   (string-append (bootstrap-static-urlprefix) str))
@@ -67,7 +69,8 @@
 	   (link ((rel "stylesheet") (href ,(static "/jquery-ui.min.css")) (type "text/css")))
            (link ((rel "stylesheet") (href ,(static "/style.css")) (type "text/css")))
 	   ,@(for/list ((sheet (bootstrap-page-stylesheets)))
-	       `(link ((rel "stylesheet") (href ,sheet) (type "text/css")))))
+	       `(link ((rel "stylesheet") (href ,sheet) (type "text/css"))))
+           ,@(bootstrap-head-extra))
      (body ,@(maybe-splice body-class `((class ,body-class)))
       (nav ((class "navbar navbar-inverse navbar-fixed-top") (role "navigation"))
 	   (div ((class "container-fluid"))

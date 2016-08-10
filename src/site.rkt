@@ -129,6 +129,11 @@
 
 (define-syntax-rule (with-site-config body ...)
   (parameterize ((bootstrap-navbar-header (navbar-header))
+                 (bootstrap-head-extra
+                  `((link ((rel "alternate")
+                           (type "application/atom+xml")
+                           (title "Atom Feed")
+                           (href ,(static-resource-url "/atom.xml"))))))
                  (bootstrap-navigation
                   `((,nav-index ,(main-page-url))
                     ("Documentation" "https://docs.racket-lang.org/")
