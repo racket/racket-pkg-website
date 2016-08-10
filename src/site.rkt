@@ -152,6 +152,7 @@
                       dynamic-static-urlprefix))
                  (bootstrap-dynamic-urlprefix
                   dynamic-urlprefix)
+                 (bootstrap-page-scripts (list (static-resource-url "/index.js")))
                  (bootstrap-inline-js
                   (string-append (format "PkgSiteDynamicBaseUrl = '~a';" dynamic-urlprefix)
                                  (format "PkgSiteStaticBaseUrl = '~a';" static-urlprefix)
