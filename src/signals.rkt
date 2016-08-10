@@ -4,14 +4,20 @@
 (provide poll-signal
 	 start-restart-signal-watcher)
 
+(require (only-in racket/file file->string))
 (require reloadable)
 (require "daemon.rkt")
 
 (define (poll-signal signal-file-name message handler)
   (when (file-exists? signal-file-name)
-    (log-info message)
+    (define contents (file->string signal-file-name))
+    (if (string=? contents "")
+        (log-info "~a" message)
+        (log-info "~a: ~a" message contents))
     (delete-file signal-file-name)
-    (handler)))
+    (if (procedure-arity-includes? handler 1)
+        (handler contents)
+        (handler))))
 
 (define (start-restart-signal-watcher)
   (daemon-thread
@@ -37,7 +43,12 @@
                      (lookup-reloadable-entry-point 'refresh-packages! "packages.rkt")))
        (poll-signal "../signals/.rerender"
                     "Static rerender request received"
-                    (reloadable-entry-point->procedure
-                     (lookup-reloadable-entry-point 'rerender-all! "site.rkt")))
+                    (lambda (request-body)
+                      (define items-to-rerender (read (open-input-string request-body)))
+                      ((reloadable-entry-point->procedure
+                        (lookup-reloadable-entry-point 'rerender! "site.rkt"))
+                       (if (eof-object? items-to-rerender)
+                           #f
+                           items-to-rerender))))
        (sleep 0.5)
        (loop)))))

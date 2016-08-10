@@ -8,7 +8,7 @@
 (define (main [config (hash)])
   (make-persistent-state '*config* (lambda () config))
   (void (make-reloadable-entry-point 'refresh-packages! "packages.rkt"))
-  (void (make-reloadable-entry-point 'rerender-all! "site.rkt"))
+  (void (make-reloadable-entry-point 'rerender! "site.rkt"))
   (start-service #:port (hash-ref config 'port (lambda ()
                                                  (let ((port-str (getenv "SITE_PORT")))
                                                    (if port-str (string->number port-str) 7443))))

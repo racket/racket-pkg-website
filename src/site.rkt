@@ -2,7 +2,7 @@
 
 (provide request-handler
          on-continuation-expiry
-         rerender-all!)
+         rerender!)
 
 (require racket/runtime-path)
 (require racket/set)
@@ -1421,8 +1421,8 @@
                    (hash))))))
   (set-package-external-information! package-name external-information))
 
-(define (rerender-all!)
-  (thread-send (package-change-handler-thread) 'rerender-all!))
+(define (rerender! items-to-rerender)
+  (thread-send (package-change-handler-thread) (list 'rerender! items-to-rerender)))
 
 (define (internal:rerender-not-found!)
   ;; TODO: general-purpose error page instead.
@@ -1457,9 +1457,13 @@
                                  (internal:rerender-not-found!)
                                  (package-change-handler index-rerender-needed?
                                                          pending-completions)]
-                                ['rerender-all!
-                                 (log-info "rerender-all!")
-                                 (for ((p (all-package-names)))
+                                [(list 'rerender! items-to-rerender)
+                                 (log-info "rerender! ~v" items-to-rerender)
+                                 (define packages-to-rerender
+                                   (if items-to-rerender
+                                       (filter symbol? items-to-rerender)
+                                       (all-package-names)))
+                                 (for ((p packages-to-rerender))
                                    (update-external-package-information! p)
                                    (static-render! #:mime-type "text/html"
                                                    relative-named-url
