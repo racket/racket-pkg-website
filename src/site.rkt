@@ -152,7 +152,6 @@
                       dynamic-static-urlprefix))
                  (bootstrap-dynamic-urlprefix
                   dynamic-urlprefix)
-                 (bootstrap-page-scripts (list (static-resource-url "/index.js")))
                  (bootstrap-inline-js
                   (string-append (format "PkgSiteDynamicBaseUrl = '~a';" dynamic-urlprefix)
                                  (format "PkgSiteStaticBaseUrl = '~a';" static-urlprefix)
@@ -648,7 +647,8 @@
 
 (define (main-page request)
   (parameterize ((bootstrap-active-navigation nav-index)
-                 (bootstrap-page-scripts (list (static-resource-url "/searchbox.js"))))
+                 (bootstrap-page-scripts (list (static-resource-url "/searchbox.js")
+                                               (static-resource-url "/index.js"))))
     (define package-name-list (package-search "" '((main-distribution #f))))
     (authentication-wrap
      #:request request
