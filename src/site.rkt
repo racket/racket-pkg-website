@@ -1463,7 +1463,12 @@
                                    (if items-to-rerender
                                        (filter symbol? items-to-rerender)
                                        (all-package-names)))
-                                 (for ((p packages-to-rerender))
+                                 (define total-packages-to-rerender (length packages-to-rerender))
+                                 (for [(p packages-to-rerender) (i (in-naturals))]
+                                   (log-info "rerendering package ~a, ~a of ~a in this batch"
+                                             p
+                                             (+ i 1)
+                                             total-packages-to-rerender)
                                    (update-external-package-information! p)
                                    (static-render! #:mime-type "text/html"
                                                    relative-named-url
