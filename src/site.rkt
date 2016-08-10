@@ -651,8 +651,7 @@
        ,@(for/list [(e (list (list failure-log-url "" "fails")
                              (list success-log-url "" "succeeds")
                              (list dep-failure-log-url "; has " "dependency problems")
-                             (list test-failure-log-url "; has " "failing tests")
-                             (list test-success-log-url "; " "tests pass")))]
+                             (list test-failure-log-url "; has " "failing tests")))]
            (match-define (list u p l) e)
            (if u `(span ,p ,(buildhost-link u l)) `(span)))))
 
