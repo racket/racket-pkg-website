@@ -556,6 +556,8 @@
 ;; Optional -- sometimes #f
 (define (package-build-failure-log pkg)     (@ pkg build failure-log))
 (define (package-build-success-log pkg)     (@ pkg build success-log))
+(define (package-build-test-failure-log pkg) (@ pkg build test-failure-log))
+(define (package-build-test-success-log pkg) (@ pkg build test-success-log))
 (define (package-build-dep-failure-log pkg) (@ pkg build dep-failure-log))
 (define (package-build-conflicts-log pkg)   (@ pkg build conflicts-log))
 (define (package-ring pkg)                  (@ pkg ring))
@@ -625,23 +627,34 @@
                   `(div
                     (span ((class "doctags-label")) "Tags: ")
                     ,(tag-links (package-tags pkg)))))
-           ,(cond
-             [(package-build-failure-log pkg)
-              `(td ((class "build_red"))
-                ,(buildhost-link (package-build-failure-log pkg) "fails"))]
-             [(and (package-build-success-log pkg)
-                   (package-build-dep-failure-log pkg))
-              `(td ((class "build_yellow"))
-                ,(buildhost-link (package-build-success-log pkg)
-                                 "succeeds")
-                " with "
-                ,(buildhost-link (package-build-dep-failure-log pkg)
-                                 "dependency problems"))]
-             [(package-build-success-log pkg)
-              `(td ((class "build_green"))
-                ,(buildhost-link (package-build-success-log pkg) "succeeds"))]
-             [else
-              `(td)]))))))
+           ,(build-status-td pkg))))))
+
+(define (build-status-td pkg)
+  ;; Build the index page cell for summarizing a package's build status.
+  ;; Nothing at all is for no information on build success or failure.
+  ;; Green is for build succeeded along with everything else.
+  ;; Red is for build failed.
+  ;; Yellow is for build succeeded, but some other problems exist.
+
+  (define failure-log-url (package-build-failure-log pkg))
+  (define success-log-url (package-build-success-log pkg))
+  (define dep-failure-log-url (package-build-dep-failure-log pkg))
+  (define test-failure-log-url (package-build-test-failure-log pkg))
+  (define test-success-log-url (package-build-test-success-log pkg))
+
+  (define td-class (cond [failure-log-url "build_red"]
+                         [(not success-log-url) ""]
+                         [(or dep-failure-log-url test-failure-log-url) "build_yellow"]
+                         [else "build_green"]))
+
+  `(td ((class ,td-class))
+       ,@(for/list [(e (list (list failure-log-url "" "fails")
+                             (list success-log-url "" "succeeds")
+                             (list dep-failure-log-url "; has " "dependency problems")
+                             (list test-failure-log-url "; has " "failing tests")
+                             (list test-success-log-url "; " "tests pass")))]
+           (match-define (list u p l) e)
+           (if u `(span ,p ,(buildhost-link u l)) `(span)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -689,12 +702,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (build-status buildhost-url str label-type glyphicon-type)
-  `(p ((class "build-status"))
-    "Build status: "
-    ,(buildhost-link buildhost-url
-                     `(span ((class ,(format "label label-~a" label-type)))
-                       ,(glyphicon glyphicon-type) " " ,str))))
+(define (build-status-button buildhost-url str label-type glyphicon-type)
+  (buildhost-link buildhost-url
+                  `(span " " (span ((class ,(format "build-status-button label label-~a" label-type)))
+                                   ,(glyphicon glyphicon-type) " " ,str))))
 
 (define (dependencies->package-names deps)
   (filter-map (lambda (dep)
@@ -755,19 +766,21 @@
           `(div ((class "jumbotron"))
                 (h1 ,(~a package-name))
                 (p ,(package-description pkg))
-                ,(cond
-                   [(package-build-failure-log pkg)
-                    (build-status (package-build-failure-log pkg)
-                                  "failed" "danger" "fire")]
-                   [(and (package-build-success-log pkg)
-                         (package-build-dep-failure-log pkg))
-                    (build-status (package-build-dep-failure-log pkg)
-                                  "problems" "warning" "question-sign")]
-                   [(package-build-success-log pkg)
-                    (build-status (package-build-success-log pkg)
-                                  "ok" "success" "ok")]
-                   [else
-                    ""])
+                (p ((class "build-status"))
+                   "Build status: "
+                   ,@(for/list [(e (list (list package-build-failure-log
+                                               "failed" "danger" "fire")
+                                         (list package-build-success-log
+                                               "ok" "success" "ok")
+                                         (list package-build-dep-failure-log
+                                               "dependency problems" "warning" "question-sign")
+                                         (list package-build-test-failure-log
+                                               "failing tests" "warning" "question-sign")
+                                         (list package-build-test-success-log
+                                               "passing tests" "success" "ok")))]
+                       (match-define (list url-proc str label-type glyphicon-type) e)
+                       (define u (url-proc pkg))
+                       (if (not u) `(span) (build-status-button u str label-type glyphicon-type))))
                 (div ((class "dropdown"))
                      ,@(let ((docs (package-docs pkg)))
                          (match docs
@@ -886,6 +899,16 @@
                                  `(li "Dependency problems: "
                                       ,(buildhost-link (package-build-dep-failure-log pkg)
                                                        "details")))
+                              ,@(maybe-splice
+                                 (package-build-test-failure-log pkg)
+                                 `(li "Tests failed: "
+                                      ,(buildhost-link (package-build-test-failure-log pkg)
+                                                       "transcript")))
+                              ,@(maybe-splice
+                                 (package-build-test-success-log pkg)
+                                 `(li "Tests succeeded: "
+                                      ,(buildhost-link (package-build-test-success-log pkg)
+                                                       "transcript")))
                               )))
                   ,@(let* ((vs (package-versions pkg))
                            (empty-checksum "9f098dddde7f217879070816090c1e8e74d49432")
