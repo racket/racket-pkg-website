@@ -111,6 +111,13 @@
 
 ;; Already present in net/url, but that variant doesn't take #:version
 ;; or allow overriding of #:ssl? and #:port.
+;;
+;; Furthermore, currently 2016-08-14 there is a fd leak when using
+;; method HEAD with `http-sendrecv` [1], so we implement our own crude
+;; connection management here.
+;;
+;; [1] https://github.com/racket/racket/issues/1414
+;;
 (define (http-sendrecv/url u
                            #:ssl? [ssl? (equal? (url-scheme u) "https")]
                            #:port [port (or (url-port u) (if ssl? 443 80))]
@@ -119,15 +126,17 @@
                            #:headers [headers '()]
                            #:data [data #f]
                            #:content-decode [decodes '(gzip)])
-  (http-sendrecv (url-host u)
-                 (url->string u)
-                 #:ssl? ssl?
-                 #:port port
-                 #:version version
-                 #:method method
-                 #:headers headers
-                 #:data data
-                 #:content-decode decodes))
+  (define hc (http-conn-open (url-host u) #:ssl? ssl? #:port port))
+  (http-conn-send! hc (url->string u)
+                   #:version version
+                   #:method method
+                   #:headers headers
+                   #:data data
+                   #:content-decode decodes
+                   #:close? #t)
+  (begin0 (http-conn-recv! hc #:method method #:content-decode decodes #:close? #t)
+    (when (member method (list #"HEAD" "HEAD" 'HEAD))
+      (http-conn-close! hc))))
 
 (define-syntax-rule (http/interpret-response customization ... req-expr)
   (call-with-values (lambda () req-expr)
