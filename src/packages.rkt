@@ -259,7 +259,7 @@
 (define (next-fetch-deadline) (manager-rpc 'next-fetch-deadline))
 
 (define (sort-package-names names)
-  (sort names (lambda (a b) (string<? (symbol->string a) (symbol->string b)))))
+  (sort names (lambda (a b) (string-ci<? (symbol->string a) (symbol->string b)))))
 
 (define (sorted-package-names)
   (sort-package-names (all-package-names)))
