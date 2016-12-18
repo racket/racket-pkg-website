@@ -281,7 +281,11 @@
 
 (define ((package-text-matches? pkg) re)
   (and (not (tombstone? pkg))
-       (regexp-match? re (@ pkg _SEARCHABLE-TEXT_))))
+       (regexp-match? re (or (@ pkg _SEARCHABLE-TEXT_)
+                             ;; Packages lacking the _SEARCHABLE-TEXT_ key are _LOCALLY_MODIFIED_.
+                             ;; Synthesise searchable text here; a better (?) alternative would be
+                             ;; to do this at package save time, but this will do for now.
+                             (pkg->searchable-text pkg)))))
 
 (define (package-search text tags)
   (define res (map (lambda (r) (regexp (regexp-quote r #f))) (string-split text)))
