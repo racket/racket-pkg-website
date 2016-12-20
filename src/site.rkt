@@ -357,10 +357,16 @@
                           'passwd password
                           'code code)))
 
-(define (authentication-success->curator? success)
-  (match success
-    [#t #f] ;; new user -- we can only assume they are *not* curators
-    [(hash-table ('curation curator?) _ ...) (if curator? #t #f)]))
+(define (create-session-from-authentication-success! email password success)
+  ;; An "authentication success" is either #t, signalling a new user,
+  ;; or a hash-table with interesting facts in it.
+  (define user-facts (cond [(eq? success #t) (hasheq)]
+                           [(hash? success) success]
+                           [else (log-warning "Bad auth success for user ~v: ~v" email success)
+                                 (hasheq)]))
+  (create-session! email password
+                   #:curator? (if (hash-ref user-facts 'curation #f) #t #f)
+                   #:superuser? (if (hash-ref user-facts 'superuser #f) #t #f)))
 
 (define (process-login-credentials request)
   (define-form-bindings request (email password))
@@ -373,8 +379,7 @@
         [(or "emailed" #f)
          (summarise-code-emailing "Incorrect password, or nonexistent user." email)]
         [success
-         (create-session! email password
-                          #:curator? (authentication-success->curator? success))])))
+         (create-session-from-authentication-success! email password success)])))
 
 (define (register-form #:email [email ""]
                        #:code [code ""]
@@ -452,8 +457,7 @@
       [success
        ;; The email and password combo we have been given is good to go.
        ;; Set a cookie and consider ourselves logged in.
-       (create-session! email password
-                        #:curator? (authentication-success->curator? success))])]))
+       (create-session-from-authentication-success! email password success)])]))
 
 (define (notify-of-emailing request)
   (define-form-bindings request (email_for_code))
@@ -742,6 +746,11 @@
                        `(ul (li (a ((href ,(main-page-url)))
                                    "Return to the package index"))))))
 
+(define (current-user-may-edit? pkg)
+  (or (member (current-email) (package-authors pkg))
+      (and (current-session)
+           (session-superuser? (current-session)))))
+
 (define (package-page request package-name-str)
   (define package-name (string->symbol package-name-str))
   (define pkg (package-detail package-name))
@@ -827,7 +836,7 @@
                               ,(glyphicon 'link) " Code"))
 
                      ,@(maybe-splice
-                        (member (current-email) (package-authors pkg))
+                        (current-user-may-edit? pkg)
                         " "
                         `(a ((class "btn btn-info btn-lg")
                              (href ,(named-url edit-package-page package-name-str)))
@@ -952,8 +961,8 @@
    (define package-name (string->symbol package-name-str))
    (define pkg (package-detail package-name))
    (cond
-    [(and pkg (not (member (current-email) (package-authors pkg))))
-     ;; Not ours. Show it instead.
+    [(and pkg (not (current-user-may-edit? pkg)))
+     ;; Exists, isn't ours, and we're not superuser. Show it instead.
      (bootstrap-redirect (view-package-url package-name))]
     [(not pkg)
      ;; Doesn't exist.
@@ -964,6 +973,7 @@
                                      '()
                                      `(("default" ,default-empty-parsed-package-source))))]
     [else
+     ;; Exists, and either ours or we are superuser.
      (package-form #f
                    (draft-package package-name-str
                                   package-name-str
