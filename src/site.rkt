@@ -843,14 +843,16 @@
                     ,(utc->string (/ (next-fetch-deadline) 1000)) ".")
               "")
 
-          (if (package-checksum-error pkg)
-              `(div ((class "alert alert-danger")
-                     (role "alert"))
-                    (span ((class "label label-danger"))
-                          "Checksum error")
-                    " The package checksum does not match"
-                    " the package source code.")
-              "")
+          (match (package-checksum-error pkg)
+            [#f ""]
+            [err
+             `(div ((class "alert alert-danger")
+                    (role "alert"))
+                   (p (span ((class "label label-danger"))
+                            "Checksum error")
+                      " An error occurred while updating"
+                      " the package checksum.")
+                   (pre ,err))])
 
           `(table ((class "package-details"))
                   (tr (th "Authors")
