@@ -1278,7 +1278,7 @@
                                        'source source
                                        'tags tags
                                        'authors authors
-                                       'versions versions)))
+                                       'versions (unparse-versions versions))))
        (let* ((new-pkg (or old-pkg (hash)))
               (new-pkg (hash-set new-pkg 'name name))
               (new-pkg (hash-set new-pkg 'description description))
@@ -1321,6 +1321,11 @@
                  st
                  (hash-set st ':conflicts: #t))])
     st))
+
+(define (unparse-versions draft-versions)
+  (for/list ((v draft-versions))
+    (match-define (list version parsed) v)
+    (list version (unparse-package-source parsed))))
 
 (define (friendly-versions draft-versions)
   (for/hash ((v draft-versions))
