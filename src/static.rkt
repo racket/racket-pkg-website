@@ -196,6 +196,12 @@
                           headers))))
   (hash-set index relative-path new-md5))
 
+(define (aws-delete-file! index absolute-path)
+  (define relative-path (absolute-path->relative-path absolute-path))
+  (log-info "Deleting ~a from S3" relative-path)
+  (delete (string-append aws-s3-bucket+path relative-path))
+  (hash-remove index relative-path))
+
 (define (extension-map p)
   (match (filename-extension p)
     [#"html" "text/html"]
@@ -215,10 +221,22 @@
     (define absolute-path
       (path->string (build-path target-absolute-path-prefix
                                 (find-relative-path source-directory filepath))))
-    (aws-put-file! index
-                   absolute-path
-                   (file->bytes filepath)
-                   (extension-map filepath))))
+    ;; https://github.com/tonyg/racket-pkg-website/issues/28
+    ;; TOCTTOU: we checked that `file-exists?` above, but that may have changed since!
+    (define contents
+      (with-handlers [(exn:fail:filesystem?
+                       ;; ^ It would be nice to be able to be more precise here, e.g.
+                       ;; file-not-found, but `file->bytes` delegates to `file-size` which
+                       ;; only raises `exn:fail:filesystem` when a problem occurs.
+                       (lambda (e)
+                         (log-warning "Transient (?) problem reading ~v: ~v"
+                                      filepath
+                                      (exn-message e))
+                         #f))]
+        (file->bytes filepath)))
+    (if contents
+        (aws-put-file! index absolute-path contents (extension-map filepath))
+        (aws-delete-file! index absolute-path))))
 
 (define (configure-s3-cors!)
   (log-info "Configuring S3 CORS headers:\n~a"
@@ -241,10 +259,7 @@
           [('put-file! absolute-path content-bytes mime-type)
            (values (void) (aws-put-file! index absolute-path content-bytes mime-type))]
           [('delete-file! absolute-path)
-           (define relative-path (absolute-path->relative-path absolute-path))
-           (log-info "Deleting ~a from S3" relative-path)
-           (delete (string-append aws-s3-bucket+path relative-path))
-           (values (void) (hash-remove index relative-path))]
+           (values (void) (aws-delete-file! index absolute-path))]
           [('finish-update!)
            (let* ((index (upload-directory! index (build-path (config-path "../static") ".") "/"))
                   (index (upload-directory! index
