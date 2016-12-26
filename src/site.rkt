@@ -22,7 +22,7 @@
 (require "html-utils.rkt")
 (require "packages.rkt")
 (require "sessions.rkt")
-(require "jsonp-client.rkt")
+(require "json-rpc.rkt")
 (require reloadable)
 (require "daemon.rkt")
 (require "config.rkt")
@@ -158,8 +158,7 @@
                                  (format "PkgSiteStaticBaseUrl = '~a';" static-urlprefix)
                                  (format "IsStaticPage = ~a;" (if (rendering-static-page?)
                                                                   "true"
-                                                                  "false"))))
-                 (jsonp-baseurl backend-baseurl))
+                                                                  "false")))))
     body ...))
 
 (define clear-session-cookie (make-cookie COOKIE
@@ -352,6 +351,7 @@
 (define (authenticate-with-server! email password code)
   (simple-json-rpc! #:sensitive? #t
                     #:include-credentials? #f
+                    backend-baseurl
                     "/api/authenticate"
                     (hash 'email email
                           'passwd password
@@ -1169,7 +1169,7 @@
                             (a ((class "btn btn-default")
                                 (href ,k-url))
                                "Confirm deletion")))))
-   (jsonp-rpc! "/jsonp/package/del" `((pkg . ,package-name-str)))
+   (simple-json-rpc! backend-baseurl "/api/package/del" (hash 'pkg package-name-str))
    (define completion-ch (make-channel))
    (delete-package! completion-ch (string->symbol package-name-str))
    (channel-get completion-ch)
@@ -1262,16 +1262,11 @@
   (define source (unparse-package-source (cadr default-version)))
   (define versions (remove default-version versions/default))
   (define old-pkg (package-detail (string->symbol old-name)))
-  ;; name, description, and default source are updateable via /jsonp/package/modify.
-  ;; tags are added and removed via /jsonp/package/tag/add and .../del.
-  ;; authors are added and removed via /jsonp/package/author/add and .../del.
-  ;; versions other than default are added and removed via /jsonp/package/version/add and .../del.
-  ;;
-  ;; modify-all incorporates all the add/delete stuff into a single API call.
   (and (or (equal? old-name name)
            ;; Don't let renames stomp on existing packages
            (not (package-detail (string->symbol name))))
-       (eq? #t (simple-json-rpc! "/api/package/modify-all"
+       (eq? #t (simple-json-rpc! backend-baseurl
+                                 "/api/package/modify-all"
                                  (hash 'pkg old-name
                                        'name name
                                        'description description
@@ -1345,7 +1340,7 @@
 (define (update-my-packages-page request)
   (authentication-wrap/require-login
    #:request request
-   (jsonp-rpc! "/jsonp/update" '())
+   (simple-json-rpc! backend-baseurl "/api/update" (hash))
    (bootstrap-response "Refresh All My Packages"
                        `(div
                          (p "All packages where you are listed as an author are now being rescanned.")
@@ -1361,8 +1356,10 @@
   (authentication-wrap/require-login
    #:request request
    (when (session-curator? (current-session))
-     (when (jsonp-rpc! "/jsonp/package/curate" `((pkg . ,package-name-str)
-                                                 (ring . ,(number->string new-ring))))
+     (when (simple-json-rpc! backend-baseurl
+                             "/api/package/curate"
+                             (hash 'pkg package-name-str
+                                   'ring new-ring))
        (define old-pkg (package-detail (string->symbol package-name-str)))
        (let* ((new-pkg (hash-set old-pkg 'ring new-ring))
               (completion-ch (make-channel)))
