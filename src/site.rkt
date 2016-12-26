@@ -1528,58 +1528,111 @@
                     "text/plain")
   (static-finish-update!))
 
-(define (package-change-handler index-rerender-needed? pending-completions)
-  (sync/timeout (and index-rerender-needed?
-                     (lambda ()
-                       (static-render! #:mime-type "text/html"
-                                       relative-named-url main-page
-                                       #:filename "/index.html")
-                       (static-render! #:mime-type "application/json"
-                                       relative-named-url json-search-completions)
-                       (static-finish-update!)
-                       (for ((completion-ch pending-completions))
-                         (channel-put completion-ch (void)))
-                       (package-change-handler #f '())))
+(define (package-change-handler packages-to-render-before-issuing-completions ;; Setof Symbol
+                                pending-completions ;; Listof (Channelof Void)
+                                packages-to-render-in-idle-moments ;; Setof Symbol
+                                )
+  ;; In order for this daemon to stay responsive, I have changed its implementation to
+  ;; avoid long-running tasks (such as refreshing every package!) between checks of the
+  ;; mailbox.
+
+  ;; Symbol String -> Void
+  ;; Produces a static rendering of the named package.
+  (define (rerender-package! p priority)
+    (log-info "rerendering package ~a at ~a priority, ~a high and ~a low left to do with ~a waiters"
+              p
+              priority
+              (set-count packages-to-render-before-issuing-completions)
+              (set-count packages-to-render-in-idle-moments)
+              (length pending-completions))
+    (update-external-package-information! p)
+    (static-render! #:mime-type "text/html"
+                    relative-named-url
+                    package-page
+                    (symbol->string p)))
+
+  ;; -> Void
+  (define (rerender-index-and-flush!)
+    (static-render! #:mime-type "text/html"
+                    relative-named-url main-page
+                    #:filename "/index.html")
+    (static-render! #:mime-type "application/json"
+                    relative-named-url json-search-completions)
+    (static-finish-update!))
+
+  ;; -> (U #f (-> Nothing))
+  ;; Yield #f if no work can be done without an incoming message, or a procedure which
+  ;; does some work and tail-calls package-change-handler otherwise.
+  (define (compute-work-step)
+    (cond
+      [(not (set-empty? packages-to-render-before-issuing-completions))
+       (lambda ()
+         (define p (set-first packages-to-render-before-issuing-completions))
+         (rerender-package! p "high")
+         (package-change-handler (set-remove packages-to-render-before-issuing-completions p)
+                                 pending-completions
+                                 packages-to-render-in-idle-moments))]
+      [(not (null? pending-completions))
+       (lambda ()
+         (rerender-index-and-flush!)
+         (for ((completion-ch pending-completions))
+           (channel-put completion-ch (void)))
+         (package-change-handler packages-to-render-before-issuing-completions
+                                 '()
+                                 packages-to-render-in-idle-moments))]
+      [(not (set-empty? packages-to-render-in-idle-moments))
+       (lambda ()
+         (define p (set-first packages-to-render-in-idle-moments))
+         (define remaining-packages-to-render-in-idle-moments
+           (set-remove packages-to-render-in-idle-moments p))
+         (rerender-package! p "low")
+         (when (set-empty? remaining-packages-to-render-in-idle-moments)
+           (rerender-index-and-flush!))
+         (package-change-handler packages-to-render-before-issuing-completions
+                                 pending-completions
+                                 remaining-packages-to-render-in-idle-moments))]
+      [else
+       #f]))
+
+  ;; Any -> Nothing
+  ;; Processes an incoming message, updating state and tailcalling package-change-handler.
+  (define (handle-message message)
+    (match message
+      ['upgrade ;; Happens every time site.rkt is reloaded
+       (internal:rerender-not-found!)
+       (package-change-handler packages-to-render-before-issuing-completions
+                               pending-completions
+                               packages-to-render-in-idle-moments)]
+      [(list 'rerender! items-to-rerender)
+       (log-info "rerender! ~v" items-to-rerender)
+       (define packages-to-rerender
+         (list->set (if items-to-rerender
+                        (filter symbol? items-to-rerender)
+                        (all-package-names))))
+       (package-change-handler packages-to-render-before-issuing-completions
+                               pending-completions
+                               (set-union packages-to-render-in-idle-moments
+                                          packages-to-rerender))]
+      [(list 'package-changed completion-ch package-name)
+       (if completion-ch
+           (package-change-handler (set-add packages-to-render-before-issuing-completions package-name)
+                                   (cons completion-ch pending-completions)
+                                   packages-to-render-in-idle-moments)
+           (package-change-handler packages-to-render-before-issuing-completions
+                                   pending-completions
+                                   (set-add packages-to-render-in-idle-moments package-name)))]))
+
+  ;; Wait for an event, which will be either the readiness of a pending work item or the
+  ;; arrival of a new message (which will add to our sets of ready pending work items).
+  (sync/timeout (compute-work-step)
                 (handle-evt (thread-receive-evt)
                             (lambda (_)
-                              (match (thread-receive)
-                                ['upgrade ;; Happens every time site.rkt is reloaded
-                                 (internal:rerender-not-found!)
-                                 (package-change-handler index-rerender-needed?
-                                                         pending-completions)]
-                                [(list 'rerender! items-to-rerender)
-                                 (log-info "rerender! ~v" items-to-rerender)
-                                 (define packages-to-rerender
-                                   (if items-to-rerender
-                                       (filter symbol? items-to-rerender)
-                                       (all-package-names)))
-                                 (define total-packages-to-rerender (length packages-to-rerender))
-                                 (for [(p packages-to-rerender) (i (in-naturals))]
-                                   (log-info "rerendering package ~a, ~a of ~a in this batch"
-                                             p
-                                             (+ i 1)
-                                             total-packages-to-rerender)
-                                   (update-external-package-information! p)
-                                   (static-render! #:mime-type "text/html"
-                                                   relative-named-url
-                                                   package-page
-                                                   (symbol->string p)))
-                                 (package-change-handler #t
-                                                         pending-completions)]
-                                [(list 'package-changed completion-ch package-name)
-                                 (update-external-package-information! package-name)
-                                 (static-render! #:mime-type "text/html"
-                                                 relative-named-url
-                                                 package-page
-                                                 (symbol->string package-name))
-                                 (package-change-handler
-                                  #t
-                                  (if completion-ch
-                                      (cons completion-ch pending-completions)
-                                      pending-completions))])))))
+                              (handle-message (thread-receive))))))
 
 (when (not (package-change-handler-thread))
   (package-change-handler-thread (daemon-thread 'package-change-handler
-                                                (lambda () (package-change-handler #f '())))))
+                                                (lambda () (package-change-handler (seteq)
+                                                                                   '()
+                                                                                   (seteq))))))
 
 (thread-send (package-change-handler-thread) 'upgrade) ;; switch to new code
