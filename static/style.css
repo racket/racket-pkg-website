@@ -11,7 +11,7 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-.navbar { background: black; }
+.navbar { background: white; }
 
 /*---------------------------------------------------------------------------*/
 /* Make the navbar the same height as the main racket page's navbar */
@@ -20,6 +20,10 @@ body {
     line-height: 60px;
     height: 60px;
     padding-top: 0;
+    color: #444 !important; /* override bootstrap.css */
+}
+.navbar-nav > .active > a {
+    color: white !important; /* override bootstrap.css */
 }
 .navbar-btn {
     margin-top: 13px;
