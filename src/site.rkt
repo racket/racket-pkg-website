@@ -1606,9 +1606,9 @@
       [(list 'rerender! items-to-rerender)
        (log-info "rerender! ~v" items-to-rerender)
        (define packages-to-rerender
-         (list->set (if items-to-rerender
-                        (filter symbol? items-to-rerender)
-                        (all-package-names))))
+         (list->seteq (if items-to-rerender
+                          (filter symbol? items-to-rerender)
+                          (all-package-names))))
        (package-change-handler packages-to-render-before-issuing-completions
                                pending-completions
                                (set-union packages-to-render-in-idle-moments
