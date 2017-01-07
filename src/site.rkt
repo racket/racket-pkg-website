@@ -666,7 +666,9 @@
   (parameterize ((bootstrap-active-navigation nav-index)
                  (bootstrap-page-scripts (list (static-resource-url "/searchbox.js")
                                                (static-resource-url "/index.js"))))
-    (define package-name-list (package-search "" '((main-distribution #f))))
+    (define package-name-list (package-search "" '((main-distribution #f)
+                                                   (main-tests #f)
+                                                   (deprecated #f))))
     (authentication-wrap
      #:request request
      (if (and (not (rendering-static-page?)) (use-cache?))
