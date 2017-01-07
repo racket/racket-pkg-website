@@ -1,7 +1,5 @@
 ## Bugs
 
-racket-lib's dependencies aren't strings, and so lead to wrong URLs on its detail page
-
 get-bonus's conflicts path isn't a string, and so leads to a wrong URL
 on its detail page. See http://pkg-build.racket-lang.org/ - this kind
 of indirect report means that one of the dependencies of the package
