@@ -250,6 +250,7 @@
                        '())))
 
 (define (static-renderer-aws-s3 index)
+  (s3-region "us-west-2")
   (when (not index) (configure-s3-cors!))
   (let ((index (or index (initial-aws-s3-index))))
     (match

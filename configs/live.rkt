@@ -21,10 +21,10 @@
             ;;
 
             'static-output-type 'aws-s3
-            'aws-s3-bucket+path "pkgn.racket-lang.org/"
-            'static-urlprefix "https://pkgn.racket-lang.org"
+            'aws-s3-bucket+path "pkgs.racket-lang.org/"
+            'static-urlprefix "https://pkgs.racket-lang.org"
             'dynamic-urlprefix "https://pkgd.racket-lang.org/pkgn"
-            'dynamic-static-urlprefix "https://pkgn.racket-lang.org"
+            'dynamic-static-urlprefix "https://pkgs.racket-lang.org"
 
             ;; 'static-output-type 'aws-s3
             ;; 'aws-s3-bucket+path "pkgs.leastfixedpoint.com/"
