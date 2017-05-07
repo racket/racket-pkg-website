@@ -146,7 +146,7 @@
     (set 'git 'github 'file-url 'dir-url))
 
   (check-equal? (set) (set-subtract seen-types expected-types))
-  (check-equal? (set) (set-subtract expected-types seen-types))
+  (check-equal? (set 'file-url 'dir-url) (set-subtract expected-types seen-types))
 
   (for ((p test-data))
     (define-values (parsed-source complaints) (parse-package-source p))
