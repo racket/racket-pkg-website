@@ -13,6 +13,9 @@
 (require racket/port)
 (require racket/promise)
 (require racket/file)
+(require syntax/parse/define)
+(require (for-syntax syntax/parse))
+(require (for-syntax racket/base))
 (require web-server/private/servlet)
 (require web-server/http/request-structs)
 (require web-server/http/response-structs)
@@ -27,29 +30,40 @@
 (require "rpc.rkt")
 (require "hash-utils.rkt")
 
+(define-simple-macro (define/delay id:id expr:expr)
+  (begin
+    (define delayed (delay expr))
+    (define-syntax id
+      (make-set!-transformer
+       (λ (stx)
+         (syntax-parse stx
+           #:literals (set! delayed)
+           [(set! _ _) (raise-syntax-error 'id "identifier defined with define/delay cannot be mutated")]
+           [use:id #'(force delayed)]))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Config
 
-(define static-output-type
+(define/delay static-output-type
   ;; Either 'aws-s3 or 'file
   (or (@ (config) static-output-type)
       'file))
 
-(define aws-s3-bucket+path
+(define/delay aws-s3-bucket+path
   ;; Must end in "/"
   (@ (config) aws-s3-bucket+path))
 
-(define static-generated-directory
+(define/delay static-generated-directory
   ;; Relevant to static-output-type 'file only
   (config-path (or (@ (config) static-generated-directory)
                    (build-path (var-path) "generated-htdocs"))))
 
-(define static-content-target-directory
+(define/delay static-content-target-directory
   ;; Relevant to static-output-type 'file only
   (let ((p (@ (config) static-content-target-directory)))
     (and p (config-path p))))
 
-(define pkg-index-generated-directory
+(define/delay pkg-index-generated-directory
   (config-path (or (@ (config) pkg-index-generated-directory)
                    (error 'pkg-index-generated-directory "Not specified"))))
 
@@ -289,12 +303,16 @@
 
 (define static-renderer-thread
   (make-persistent-state 'static-renderer-thread
-                         (lambda () (daemon-thread 'static-renderer
-                                                   (lambda () (static-renderer-main))))))
+                         (lambda () (displayln "Starting daemon")
+                           (daemon-thread 'static-renderer
+                                          (lambda ()
+                                            (displayln "Daemon running")
+                                            (static-renderer-main))))))
 
 (define (renderer-rpc . request) (apply rpc-call (static-renderer-thread) request))
 
-(renderer-rpc 'reload!)
+(module+ main
+  (renderer-rpc 'reload!))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Interface to web-server static file serving
