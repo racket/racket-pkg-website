@@ -1,4 +1,4 @@
-# Racket Package Library Website
+# Racket Package Library Website [![Build Status](https://travis-ci.org/jackfirth/racket-pkg-website.svg?branch=master)](https://travis-ci.org/jackfirth/racket-pkg-website) [![codecov](https://codecov.io/gh/jackfirth/racket-pkg-website/branch/master/graph/badge.svg)](https://codecov.io/gh/jackfirth/racket-pkg-website)
 
 ## Prerequisites
 
