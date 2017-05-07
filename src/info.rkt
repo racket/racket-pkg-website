@@ -1,3 +1,3 @@
 #lang info
-(define debs '("base" "reloadable"))
+(define deps '("base" "reloadable"))
 (define collection "pkg-website")
