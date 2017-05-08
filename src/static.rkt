@@ -303,10 +303,9 @@
 
 (define static-renderer-thread
   (make-persistent-state 'static-renderer-thread
-                         (lambda () (displayln "Starting daemon")
+                         (lambda ()
                            (daemon-thread 'static-renderer
                                           (lambda ()
-                                            (displayln "Daemon running")
                                             (static-renderer-main))))))
 
 (define (renderer-rpc . request) (apply rpc-call (static-renderer-thread) request))
