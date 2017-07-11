@@ -593,46 +593,72 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (package-summary-table package-names)
-  (define now (/ (current-inexact-milliseconds) 1000))
+  (define-values (pkg-rows num-todos)
+    (build-pkg-rows/num-todos package-names))
   `(table
-    ((class "packages sortable"))
+    ((class "packages sortable") (data-todokey ,num-todos))
     (thead
      (tr
       (th 'nbsp)
       (th "Package")
       (th "Description")
-      (th "Build")))
+      (th "Build")
+      (th ((style "display: none")) 'nbsp))) ;; todokey
     (tbody
      ,@(maybe-splice (null? package-names)
                      `(tr (td ((colspan "4"))
                               (div ((class "alert alert-info"))
                                    "No packages found."))))
-     ,@(for/list ((pkg (package-batch-detail package-names)))
-         `(tr
-           (td (span ((class "last-updated-negated") (style "display: none"))
-                     ,(~a (- (package-last-updated pkg))))
-               ,@(maybe-splice
-                  (< (- now (package-last-updated pkg)) recent-seconds)
-                  `(span ((class "label label-info")) "New")))
-           (td (h2 ,(package-link (package-name pkg)))
-               ,(authors-list (package-authors pkg)))
-           (td (p ,(package-description pkg))
-               ,@(maybe-splice
-                  (or (pair? (package-docs pkg)) (package-readme-url pkg))
-                  `(div
-                    (span ((class "doctags-label")) "Docs: ")
-                    ,(doc-links (package-docs pkg))
-                    ,@(maybe-splice (package-readme-url pkg)
-                                    " "
-                                    `(a ((href ,(package-readme-url pkg)))
-                                      "README"))
-                    ))
-               ,@(maybe-splice
-                  (pair? (package-tags pkg))
-                  `(div
-                    (span ((class "doctags-label")) "Tags: ")
-                    ,(tag-links (package-tags pkg)))))
-           ,(build-status-td pkg))))))
+     ,@pkg-rows)))
+
+(define (build-pkg-rows/num-todos package-names)
+  ;; Builds the list of rows in the package table as an x-exp.
+  ;; Also returns the total number of non-zero todo keys,
+  ;; representing packages with outstanding build errors or
+  ;; failing tests, or which are missing docs or tags.
+  (define now (/ (current-inexact-milliseconds) 1000))
+  (define-values (pkg-rows num-todos)
+    (for/fold ([pkg-rows null] [num-todos 0])
+              ([pkg (package-batch-detail package-names)])
+      (define has-docs? (pair? (package-docs pkg)))
+      (define has-readme? (pair? (package-readme-url pkg)))
+      (define has-tags? (pair? (package-tags pkg)))
+      (define todokey
+        (cond [(package-build-failure-log pkg) 4]
+              [(package-build-test-failure-log pkg) 3]
+              [(not (or has-docs? has-readme?)) 2]
+              [(not has-tags?) 1]
+              [else 0]))
+      (define row-xexp
+        `(tr
+          ((data-todokey ,todokey))
+          (td (span ((class "last-updated-negated") (style "display: none"))
+                    ,(~a (- (package-last-updated pkg))))
+              ,@(maybe-splice
+                 (< (- now (package-last-updated pkg)) recent-seconds)
+                 `(span ((class "label label-info")) "New")))
+          (td (h2 ,(package-link (package-name pkg)))
+              ,(authors-list (package-authors pkg)))
+          (td (p ,(package-description pkg))
+              ,@(maybe-splice
+                 (or has-docs? has-readme?)
+                 `(div
+                   (span ((class "doctags-label")) "Docs: ")
+                   ,(doc-links (package-docs pkg))
+                   ,@(maybe-splice has-readme?
+                                   " "
+                                   `(a ((href ,(package-readme-url pkg)))
+                                       "README"))))
+              ,@(maybe-splice
+                 has-tags?
+                 `(div
+                   (span ((class "doctags-label")) "Tags: ")
+                   ,(tag-links (package-tags pkg)))))
+          ,(build-status-td pkg)
+          (td ((style "display: none")) ,todokey)))
+      (values (cons row-xexp pkg-rows) (if (> 0 todokey) (add1 num-todos) num-todos))))
+  ;; for/fold reverses pkg-rows, so un-reverse before returning.
+  (values (reverse pkg-rows) num-todos))
 
 (define (build-status-td pkg)
   ;; Build the index page cell for summarizing a package's build status.
@@ -659,6 +685,7 @@
                              (list test-failure-log-url "; has " "failing tests")))]
            (match-define (list u p l) e)
            (if u `(span ,p ,(buildhost-link u l)) `(span)))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -700,6 +727,7 @@
                 ,(format "~a packages" (length package-name-list))
                 " "
                 (a ((href ,(format "~a?q=%20" (named-url search-page)))) "(see all, including packages tagged as \"deprecated\", \"main-distribution\", or \"main-test\")"))
+             (p ((class "package-count") (id "todo-msg")) "") ;; filled in by client-side JS.
              ,(package-summary-table package-name-list))
            `(div ((class "jumbotron"))
                  (p "Questions? Comments? Bugs? Email "
