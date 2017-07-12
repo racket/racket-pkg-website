@@ -596,7 +596,7 @@
   (define-values (pkg-rows num-todos)
     (build-pkg-rows/num-todos package-names))
   `(table
-    ((class "packages sortable") (data-todokey ,num-todos))
+    ((class "packages sortable") (data-todokey ,(number->string num-todos)))
     (thead
      (tr
       (th 'nbsp)
@@ -631,7 +631,7 @@
               [else 0]))
       (define row-xexp
         `(tr
-          ((data-todokey ,todokey))
+          ((data-todokey ,(number->string todokey)))
           (td (span ((class "last-updated-negated") (style "display: none"))
                     ,(~a (- (package-last-updated pkg))))
               ,@(maybe-splice
@@ -655,8 +655,9 @@
                    (span ((class "doctags-label")) "Tags: ")
                    ,(tag-links (package-tags pkg)))))
           ,(build-status-td pkg)
-          (td ((style "display: none")) ,todokey)))
-      (values (cons row-xexp pkg-rows) (if (> 0 todokey) (add1 num-todos) num-todos))))
+          (td ((style "display: none")) ,(number->string todokey))))
+      (values (cons row-xexp pkg-rows)
+              (+ num-todos (min todokey 1)))))
   ;; for/fold reverses pkg-rows, so un-reverse before returning.
   (values (reverse pkg-rows) num-todos))
 
@@ -728,7 +729,7 @@
                 ,(format "~a packages" (length package-name-list))
                 " "
                 (a ((href ,(format "~a?q=%20" (named-url search-page)))) "(see all, including packages tagged as \"deprecated\", \"main-distribution\", or \"main-test\")"))
-             (p ((class "package-count") (id "todo-msg")) "") ;; filled in by client-side JS.
+             (p ((class "package-count") (id "todo-msg")) "")
              ,(package-summary-table package-name-list))
            `(div ((class "jumbotron"))
                  (p "Questions? Comments? Bugs? Email "
@@ -1404,7 +1405,8 @@
 
 (define (search-page request)
   (parameterize ((bootstrap-active-navigation nav-search)
-                 (bootstrap-page-scripts (list (static-resource-url "/searchbox.js"))))
+                 (bootstrap-page-scripts (list (static-resource-url "/searchbox.js")
+                                               (static-resource-url "/todos.js"))))
     (authentication-wrap
      #:request request
      (define-form-bindings request ([search-text q ""]
@@ -1433,6 +1435,7 @@
                                      `(div
                                        (p ((class "package-count"))
                                           ,(format "~a packages found" (length package-name-list)))
+                                       (p ((class "package-count") (id "todo-msg")) "")
                                        ,(package-summary-table package-name-list))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

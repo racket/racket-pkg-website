@@ -24,6 +24,7 @@ $(function() {
   var todoTotal = $("table.packages").data("todokey");
 
   if (todoTotal > 0) {
+    $("#todo-msg").show();
     $("#todo-msg").html(
       todoTotal + " todos. " +
       "<a style='cursor:pointer' id='filter-pkgs'> Click here to see them.</a>"
@@ -43,6 +44,8 @@ $(function() {
         filterIsApplied = false;
       }
     });
+  } else {
+    $("#todo-msg").hide();
   }
 
 }); /* document.ready */
