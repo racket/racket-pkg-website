@@ -8,7 +8,7 @@ $(function() {
         row.style.display = "none";
       }
     });
-    $("table.packages > thead > tr > :nth-child(5)").trigger("click");
+    $("table.packages").trigger("sorton", [[[4, 1]]]);
   }
 
   function removeFilter() {
@@ -18,14 +18,14 @@ $(function() {
         row.style.display = "";
       }
     });
-    $("table.packages > thead > tr > :nth-child(2)").trigger("click");
+    $("table.packages").trigger("sorton", [[[1, 0]]]);
   }
 
   var todoTotal = $("table.packages").data("todokey");
 
   if (todoTotal > 0) {
     $("#todo-msg").html(
-      todoTotal + " todos. " + 
+      todoTotal + " todos. " +
       "<a style='cursor:pointer' id='filter-pkgs'> Click here to see them.</a>"
     );
 
