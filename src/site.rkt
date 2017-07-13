@@ -623,10 +623,12 @@
       (define has-docs? (pair? (package-docs pkg)))
       (define has-readme? (pair? (package-readme-url pkg)))
       (define has-tags? (pair? (package-tags pkg)))
+      (define has-desc? (not (string=? "" (package-description pkg))))
       (define todokey
-        (cond [(package-build-failure-log pkg) 4]
-              [(package-build-test-failure-log pkg) 3]
-              [(not (or has-docs? has-readme?)) 2]
+        (cond [(package-build-failure-log pkg) 5]
+              [(package-build-test-failure-log pkg) 4]
+              [(not (or has-docs? has-readme?)) 3]
+              [(not has-desc?) 2]
               [(not has-tags?) 1]
               [else 0]))
       (define row-xexp
