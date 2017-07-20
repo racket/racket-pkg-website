@@ -638,30 +638,40 @@
                     ,(~a (- (package-last-updated pkg))))
               ,@(maybe-splice
                  (< (- now (package-last-updated pkg)) recent-seconds)
-                 `(span ((class "label label-info")) "New")))
+                 `(p (span ((class "label label-info")) "New")))
+              ,@(maybe-splice
+                 (> 0 todokey)
+                 (label-p (if (< todokey 5)
+                              "label-warning"
+                              "label-danger") "Todo")))
           (td (h2 ,(package-link (package-name pkg)))
               ,(authors-list (package-authors pkg)))
-          (td (p ,(package-description pkg))
-              ,@(maybe-splice
-                 (or has-docs? has-readme?)
-                 `(div
-                   (span ((class "doctags-label")) "Docs: ")
-                   ,(doc-links (package-docs pkg))
-                   ,@(maybe-splice has-readme?
-                                   " "
-                                   `(a ((href ,(package-readme-url pkg)))
-                                       "README"))))
-              ,@(maybe-splice
-                 has-tags?
-                 `(div
-                   (span ((class "doctags-label")) "Tags: ")
-                   ,(tag-links (package-tags pkg)))))
+          (td (p ,(if (string=? "" (package-description pkg))
+                      `(span ((class "label-warning")) "This package needs a description")
+                      (package-description pkg)))
+              ,(if (not (or has-docs? has-readme?))
+                   (label-p "label-warning" "This package needs documentation")
+                   `(div
+                     (span ((class "doctags-label")) "Docs: ")
+                     ,(doc-links (package-docs pkg))
+                     ,@(maybe-splice has-readme?
+                                     " "
+                                     `(a ((href ,(package-readme-url pkg)))
+                                         "README"))))
+              ,(if (not has-tags?)
+                   (label-p "label-warning" "This package needs tags")
+                   `(div
+                     (span ((class "doctags-label")) "Tags: ")
+                     ,(tag-links (package-tags pkg)))))
           ,(build-status-td pkg)
           (td ((style "display: none")) ,(number->string todokey))))
       (values (cons row-xexp pkg-rows)
               (+ num-todos (min todokey 1)))))
   ;; for/fold reverses pkg-rows, so un-reverse before returning.
   (values (reverse pkg-rows) num-todos))
+
+(define (label-p cls txt)
+  `(p (span ((class ,cls)) ,txt)))
 
 (define (build-status-td pkg)
   ;; Build the index page cell for summarizing a package's build status.
