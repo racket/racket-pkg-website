@@ -638,7 +638,7 @@
                     ,(~a (- (package-last-updated pkg))))
               ,@(maybe-splice
                  (< (- now (package-last-updated pkg)) recent-seconds)
-                 `(p (span ((class "label label-info")) "New")))
+                 (label-p "label-info" "New"))
               ,@(maybe-splice
                  (> 0 todokey)
                  (label-p (if (< todokey 5)
@@ -647,7 +647,7 @@
           (td (h2 ,(package-link (package-name pkg)))
               ,(authors-list (package-authors pkg)))
           (td (p ,(if (string=? "" (package-description pkg))
-                      `(span ((class "label-warning")) "This package needs a description")
+                      `(span ((class "label label-warning")) "This package needs a description")
                       (package-description pkg)))
               ,(if (not (or has-docs? has-readme?))
                    (label-p "label-warning" "This package needs documentation")
@@ -671,7 +671,7 @@
   (values (reverse pkg-rows) num-todos))
 
 (define (label-p cls txt)
-  `(p (span ((class ,cls)) ,txt)))
+  `(p (span ((class ,(string-append "label " cls))) ,txt)))
 
 (define (build-status-td pkg)
   ;; Build the index page cell for summarizing a package's build status.
