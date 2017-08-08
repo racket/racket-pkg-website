@@ -5,6 +5,7 @@
          rerender!)
 
 (require racket/runtime-path)
+(require racket/list)
 (require racket/set)
 (require racket/match)
 (require racket/format)
@@ -588,6 +589,7 @@
 (define (package-docs pkg)              (or (@ pkg build docs) '()))
 (define (package-conflicts pkg)         (or (@ pkg conflicts) '()))
 (define (package-dependencies pkg)      (or (@ pkg dependencies) '()))
+(define (package-implies pkg)           (or (@ pkg implies) '()))
 (define (package-modules pkg)           (or (@ pkg modules) '()))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -611,16 +613,27 @@
                                    "No packages found."))))
      ,@pkg-rows)))
 
+(define (get-implied-docs pkg)
+  (let* ([implied-names (package-implies pkg)]
+         [implied-pkgs (package-batch-detail implied-names)])
+    (map package-docs implied-pkgs)))
+
 (define (build-pkg-rows/num-todos package-names)
   ;; Builds the list of rows in the package table as an x-exp.
   ;; Also returns the total number of non-zero todo keys,
   ;; representing packages with outstanding build errors or
-  ;; failing tests, or which are missing docs or tags.
+  ;; failing tests, or which are missing docs or tags.                    
   (define now (/ (current-inexact-milliseconds) 1000))
   (define-values (pkg-rows num-todos)
     (for/fold ([pkg-rows null] [num-todos 0])
               ([pkg (package-batch-detail package-names)])
-      (define has-docs? (pair? (package-docs pkg)))
+      (define pkg-docs
+        (let ([implied-docs (get-implied-docs)]
+              [pkg-docs (package-docs pkg)])
+          (if (null? pkg-docs)
+              implied-docs
+              (list* pkg-docs implied-docs))))
+      (define has-docs? (pair? pkg-docs))
       (define has-readme? (pair? (package-readme-url pkg)))
       (define has-tags? (pair? (package-tags pkg)))
       (define has-desc? (not (string=? "" (package-description pkg))))
@@ -638,12 +651,7 @@
                     ,(~a (- (package-last-updated pkg))))
               ,@(maybe-splice
                  (< (- now (package-last-updated pkg)) recent-seconds)
-                 (label-p "label-info" "New"))
-              ,@(maybe-splice
-                 (> 0 todokey)
-                 (label-p (if (< todokey 5)
-                              "label-warning"
-                              "label-danger") "Todo")))
+                 (label-p "label-info" "New")))
           (td (h2 ,(package-link (package-name pkg)))
               ,(authors-list (package-authors pkg)))
           (td (p ,(if (string=? "" (package-description pkg))
@@ -653,7 +661,7 @@
                    (label-p "label-warning" "This package needs documentation")
                    `(div
                      (span ((class "doctags-label")) "Docs: ")
-                     ,(doc-links (package-docs pkg))
+                     ,(doc-links pkg-docs)
                      ,@(maybe-splice has-readme?
                                      " "
                                      `(a ((href ,(package-readme-url pkg)))
