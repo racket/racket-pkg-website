@@ -622,11 +622,12 @@
   ;; Builds the list of rows in the package table as an x-exp.
   ;; Also returns the total number of non-zero todo keys,
   ;; representing packages with outstanding build errors or
-  ;; failing tests, or which are missing docs or tags.                    
+  ;; failing tests, or which are missing docs or tags.
   (define now (/ (current-inexact-milliseconds) 1000))
   (define-values (pkg-rows num-todos)
     (for/fold ([pkg-rows null] [num-todos 0])
               ([pkg (package-batch-detail package-names)])
+      ;; TODO: list of package docs is actually NOT right data type?
       (define pkg-docs
         (let ([implied-docs (get-implied-docs)]
               [pkg-docs (package-docs pkg)])
@@ -651,7 +652,12 @@
                     ,(~a (- (package-last-updated pkg))))
               ,@(maybe-splice
                  (< (- now (package-last-updated pkg)) recent-seconds)
-                 (label-p "label-info" "New")))
+                 (label-p "label-info" "New"))
+              ,@(maybe-splice
+                 (> 0 todokey)
+                 (label-p (if (< todokey 5)
+                              "label-warning"
+                              "label-danger") "Todo")))
           (td (h2 ,(package-link (package-name pkg)))
               ,(authors-list (package-authors pkg)))
           (td (p ,(if (string=? "" (package-description pkg))
