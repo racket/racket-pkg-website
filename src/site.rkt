@@ -627,7 +627,6 @@
   (define-values (pkg-rows num-todos)
     (for/fold ([pkg-rows null] [num-todos 0])
               ([pkg (package-batch-detail package-names)])
-      ;; TODO: list of package docs is actually NOT right data type?
       (define pkg-docs
         (let ([implied-docs (get-implied-docs)]
               [pkg-docs (package-docs pkg)])
