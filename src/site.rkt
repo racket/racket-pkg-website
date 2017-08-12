@@ -5,6 +5,7 @@
          rerender!)
 
 (require racket/runtime-path)
+(require racket/list)
 (require racket/set)
 (require racket/match)
 (require racket/format)
@@ -588,6 +589,7 @@
 (define (package-docs pkg)              (or (@ pkg build docs) '()))
 (define (package-conflicts pkg)         (or (@ pkg conflicts) '()))
 (define (package-dependencies pkg)      (or (@ pkg dependencies) '()))
+(define (package-implies pkg)           (or (@ pkg implies) '()))
 (define (package-modules pkg)           (or (@ pkg modules) '()))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -611,6 +613,11 @@
                                    "No packages found."))))
      ,@pkg-rows)))
 
+(define (get-implied-docs pkg)
+  (let* ([implied-names (package-implies pkg)]
+         [implied-pkgs (package-batch-detail implied-names)])
+    (map package-docs implied-pkgs)))
+
 (define (build-pkg-rows/num-todos package-names)
   ;; Builds the list of rows in the package table as an x-exp.
   ;; Also returns the total number of non-zero todo keys,
@@ -620,7 +627,13 @@
   (define-values (pkg-rows num-todos)
     (for/fold ([pkg-rows null] [num-todos 0])
               ([pkg (package-batch-detail package-names)])
-      (define has-docs? (pair? (package-docs pkg)))
+      (define pkg-docs
+        (let ([implied-docs (get-implied-docs)]
+              [pkg-docs (package-docs pkg)])
+          (if (null? pkg-docs)
+              implied-docs
+              (list* pkg-docs implied-docs))))
+      (define has-docs? (pair? pkg-docs))
       (define has-readme? (pair? (package-readme-url pkg)))
       (define has-tags? (pair? (package-tags pkg)))
       (define has-desc? (not (string=? "" (package-description pkg))))
@@ -653,7 +666,7 @@
                    (label-p "label-warning" "This package needs documentation")
                    `(div
                      (span ((class "doctags-label")) "Docs: ")
-                     ,(doc-links (package-docs pkg))
+                     ,(doc-links pkg-docs)
                      ,@(maybe-splice has-readme?
                                      " "
                                      `(a ((href ,(package-readme-url pkg)))
