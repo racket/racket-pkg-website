@@ -628,7 +628,7 @@
     (for/fold ([pkg-rows null] [num-todos 0])
               ([pkg (package-batch-detail package-names)])
       (define pkg-docs
-        (let ([implied-docs (get-implied-docs)]
+        (let ([implied-docs (get-implied-docs pkg)]
               [pkg-docs (package-docs pkg)])
           (if (null? pkg-docs)
               implied-docs
