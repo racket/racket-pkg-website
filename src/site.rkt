@@ -628,11 +628,11 @@
     (for/fold ([pkg-rows null] [num-todos 0])
               ([pkg (package-batch-detail package-names)])
       (define pkg-docs
-        (let ([implied-docs (get-implied-docs)]
+        (let ([implied-docs (get-implied-docs pkg)]
               [pkg-docs (package-docs pkg)])
           (if (null? pkg-docs)
               implied-docs
-              (list* pkg-docs implied-docs))))
+              (append pkg-docs implied-docs))))
       (define has-docs? (pair? pkg-docs))
       (define has-readme? (pair? (package-readme-url pkg)))
       (define has-tags? (pair? (package-tags pkg)))
