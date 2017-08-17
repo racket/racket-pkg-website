@@ -552,6 +552,10 @@
       (string-append (date->string (seconds->date utc #f) #t) " (UTC)")
       "N/A"))
 
+(define (get-implied-docs pkg)
+  (define implied-names (package-implies pkg))
+  (append-map package-docs (package-batch-detail implied-names)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Package hashtable getters.
 ;; TODO factor this stuff out into a proper data structure
@@ -612,12 +616,6 @@
                               (div ((class "alert alert-info"))
                                    "No packages found."))))
      ,@pkg-rows)))
-
-(define (get-implied-docs pkg)
-  (define implied-names (package-implies pkg))
-  (for/fold ([out empty])
-            ([implied-pkg (package-batch-detail implied-names)])
-    (append out (package-docs implied-pkg))))
 
 (define (build-pkg-rows/num-todos package-names)
   ;; Builds the list of rows in the package table as an x-exp.
