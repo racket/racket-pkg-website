@@ -552,6 +552,10 @@
       (string-append (date->string (seconds->date utc #f) #t) " (UTC)")
       "N/A"))
 
+(define (get-implied-docs pkg)
+  (define implied-names (package-implies pkg))
+  (append-map package-docs (package-batch-detail implied-names)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Package hashtable getters.
 ;; TODO factor this stuff out into a proper data structure
@@ -613,11 +617,6 @@
                                    "No packages found."))))
      ,@pkg-rows)))
 
-(define (get-implied-docs pkg)
-  (let* ([implied-names (package-implies pkg)]
-         [implied-pkgs (package-batch-detail implied-names)])
-    (map package-docs implied-pkgs)))
-
 (define (build-pkg-rows/num-todos package-names)
   ;; Builds the list of rows in the package table as an x-exp.
   ;; Also returns the total number of non-zero todo keys,
@@ -627,12 +626,7 @@
   (define-values (pkg-rows num-todos)
     (for/fold ([pkg-rows null] [num-todos 0])
               ([pkg (package-batch-detail package-names)])
-      (define pkg-docs
-        (let ([implied-docs (get-implied-docs pkg)]
-              [pkg-docs (package-docs pkg)])
-          (if (null? pkg-docs)
-              implied-docs
-              (append pkg-docs implied-docs))))
+      (define pkg-docs (append (package-docs pkg) (get-implied-docs pkg)))
       (define has-docs? (pair? pkg-docs))
       (define has-readme? (pair? (package-readme-url pkg)))
       (define has-tags? (pair? (package-tags pkg)))
