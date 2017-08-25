@@ -982,7 +982,7 @@
                                  (values k v))))
                       (maybe-splice
                        (not (hash-empty? vs))
-                       `(tr (th "Versions")
+                       `(tr (th (a ([href "https://docs.racket-lang.org/pkg/getting-started.html#%28part._.Version_.Exceptions%29"]) "Version Exceptions"))
                             (td (table ((class "package-versions"))
                                        (tr (th "Version")
                                            (th "Source")
