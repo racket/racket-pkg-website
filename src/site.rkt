@@ -552,9 +552,35 @@
       (string-append (date->string (seconds->date utc #f) #t) " (UTC)")
       "N/A"))
 
+(define (get-implied-by-table package-names)
+  (for/fold ([ht (hash)])
+            ([pkg (package-batch-detail package-names)])
+    (define pkg-name (package-name pkg))
+    (define implied-names (package-implies pkg))
+    (for/fold ([ht ht])
+              ([implied-name implied-names])
+      (define current-names (hash-ref ht implied-name set))
+      (hash-set ht implied-name (set-add current-names pkg-name)))))
+
 (define (get-implied-docs pkg)
   (define implied-names (map string->symbol (package-implies pkg)))
   (append-map package-docs (package-batch-detail implied-names)))
+
+(define (get-docs/implied-docs pkg)
+  (append (package-docs pkg) (get-implied-docs pkg)))
+
+;; gathers the docs of all packages which imply this package
+;; by calling get-docs/implied-docs on them.
+(define (get-implied-by-docs pkg implied-by-tab)
+  (define implied-by-names
+    (set-map string->symbol (hash-ref implied-by-tab (package-name pkg) set)))
+  (append-map get-docs/implied-docs
+              (package-batch-detail (set->list implied-by-names))))
+
+(define (get-all-docs pkg implied-by-tab)
+  (remove-duplicates
+   (append (get-docs/implied-docs pkg)
+           (get-implied-by-docs pkg implied-by-tab))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Package hashtable getters.
@@ -623,10 +649,11 @@
   ;; representing packages with outstanding build errors or
   ;; failing tests, or which are missing docs or tags.
   (define now (/ (current-inexact-milliseconds) 1000))
+  (define implied-by-tab (get-implied-by-table package-names))
   (define-values (pkg-rows num-todos)
     (for/fold ([pkg-rows null] [num-todos 0])
               ([pkg (package-batch-detail package-names)])
-      (define pkg-docs (append (package-docs pkg) (get-implied-docs pkg)))
+      (define pkg-docs (get-all-docs pkg implied-by-tab))
       (define has-docs? (pair? pkg-docs))
       (define has-readme? (pair? (package-readme-url pkg)))
       (define has-tags? (pair? (package-tags pkg)))
