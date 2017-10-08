@@ -62,7 +62,7 @@
       "https://pkgd.racket-lang.org"))
 
 (define default-empty-parsed-package-source
-  (git-source "git://github.com/" #f 'git 'git "github.com" #f "" "" ""))
+  (git-source "https://github.com/" #f 'git 'git "github.com" #f "" "" ""))
 
 (define COOKIE "pltsession")
 
@@ -1122,18 +1122,7 @@
                             ,(textfield "g_host_port" "Host" g-host+port)
                             ,(textfield "g_repo" "Repository" g-repo "user/repo")
                             ,(textfield "g_commit" "Branch or commit" g-commit "master")
-                            ,(textfield "g_path" "Path within repository" g-path)
-                            ,(row #:id (group-name "g_transport")
-                                  0 3
-                                  (label (control-name "g_transport") "Transport")
-                                  0 9
-                                  `(select ((id ,(control-name "g_transport"))
-                                            (name ,(control-name "g_transport")))
-                                           ,@(for/list [(t (list "git" "https" "http"))]
-                                               `(option ((value ,t)
-                                                         ,@(maybe-splice (equal? t g-transport)
-                                                                         '(selected "selected")))
-                                                        ,t)))))))))
+                            ,(textfield "g_path" "Path within repository" g-path))))))
 
           (tr (td ((colspan "2"))
                   (div ((class "form-inline"))
@@ -1266,12 +1255,10 @@
       (g (string->symbol (format "version__~a__~a" version name)) d))
     (define type (vg 'type "simple"))
     (define simple_url (vg 'simple_url ""))
-    (define g_transport (vg 'g_transport ""))
     (define g_host_port (vg 'g_host_port ""))
     (define g_repo0 (vg 'g_repo ""))
     (define g_repo (cond
                      [(regexp-match #rx"[.]git$" g_repo0) g_repo0]
-                     [(equal? g_transport "git") g_repo0]
                      [else (string-append g_repo0 ".git")]))
     (define g_commit0 (vg 'g_commit ""))
     (define g_path (vg 'g_path ""))
@@ -1285,7 +1272,7 @@
       (match type
         ["simple" simple_url]
         ["git" (unparse-package-source (git-source "" #f #f
-                                                   (string->symbol g_transport)
+                                                   "https://"
                                                    g_host
                                                    g_port
                                                    g_repo
