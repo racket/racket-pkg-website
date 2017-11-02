@@ -1272,7 +1272,7 @@
       (match type
         ["simple" simple_url]
         ["git" (unparse-package-source (git-source "" #f #f
-                                                   "https://"
+                                                   'https
                                                    g_host
                                                    g_port
                                                    g_repo
