@@ -14,9 +14,9 @@
 (require racket/port)
 (require (only-in racket/list filter-map drop-right))
 (require (only-in racket/exn exn->string))
-(require (except-in net/url http-sendrecv/url))
+(require net/url)
 (require net/uri-codec)
-(require (except-in web-server/servlet http-sendrecv/url))
+(require web-server/servlet)
 (require json)
 (require "gravatar.rkt")
 (require "bootstrap.rkt")
@@ -1513,7 +1513,7 @@
      (match/values (http/simple-interpret-response
                     (http/follow-redirects
                      #"HEAD"
-                     (http-sendrecv/url readme-u #:method #"HEAD")))
+                     (custom-http-sendrecv/url readme-u #:method #"HEAD")))
        [('success _headers _body) (url->string readme-u)]
        [(_ _ _) #f])))
 
@@ -1527,7 +1527,7 @@
      (match/values (http/simple-interpret-response
                     (http/follow-redirects
                      #"GET"
-                     (http-sendrecv/url u #:method #"GET")))
+                     (custom-http-sendrecv/url u #:method #"GET")))
        [('success _headers body)
         (and (regexp-match? #px"(?i:id=.readme.)" body)
              (string-append (url->string u) "#readme"))]

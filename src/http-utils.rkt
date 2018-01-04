@@ -6,7 +6,7 @@
          http-interpret-response
          http-simple-interpret-response
          http-follow-redirects
-         http-sendrecv/url
+         custom-http-sendrecv/url
 
          http/interpret-response
          http/simple-interpret-response
@@ -17,7 +17,7 @@
 (require racket/match)
 (require net/http-client)
 (require net/head)
-(require (except-in net/url http-sendrecv/url))
+(require net/url)
 
 ;; (Parameterof Number)
 ;; Number of redirections to automatically follow when retrieving via GET or HEAD.
@@ -64,9 +64,9 @@
           reason-phrase
           (parse-headers response-headers downcase-header-names?)
           (if read-body?
-              (begin0 (port->bytes response-body-port)
-                (close-input-port response-body-port))
-              response-body-port)))
+            (begin0 (port->bytes response-body-port)
+              (close-input-port response-body-port))
+            response-body-port)))
 
 (define (http-simple-interpret-response status-line response-headers response-body-port)
   (define-values (_http-version
@@ -79,64 +79,39 @@
           headers
           body))
 
-(define ((http-follow-redirects method
-                                #:version [version #"1.1"])
+(define ((check-response method remaining-redirect-count)
          status-line
          response-headers
          response-body-port)
-  (define ((check-response remaining-redirect-count)
-           status-line
-           response-headers
-           response-body-port)
-    (log-debug "http-follow-redirects: Checking request result: ~a\n" status-line)
-    (define-values (http-version status-code reason-phrase) (parse-status-line status-line))
-    (if (and (positive? remaining-redirect-count)
-             (eq? (http-classify-status-code status-code) 'redirection))
-        (match (assq 'location (parse-headers response-headers))
-          [#f (values status-line response-headers response-body-port)]
-          [(cons _location-header-label location-urlbytes)
-           (define location (string->url (bytes->string/latin-1 location-urlbytes)))
-           (void (port->bytes response-body-port)) ;; consume and discard input
-           (close-input-port response-body-port)
-           (log-debug "http-follow-redirects: Following redirection to ~a\n" location-urlbytes)
-           (call-with-values (lambda () (http-sendrecv/url location
-                                                           #:version version
-                                                           #:method method))
-                             (check-response (- remaining-redirect-count 1)))])
-        (values status-line response-headers response-body-port)))
-  ((check-response (http-redirection-limit))
+  (log-debug "http-follow-redirects: Checking request result: ~a\n" status-line)
+  (define-values (http-version status-code reason-phrase)
+    (parse-status-line status-line))
+  (if (and (positive? remaining-redirect-count)
+           (eq? (http-classify-status-code status-code) 'redirection))
+    (match (assq 'location (parse-headers response-headers))
+      [#f (values status-line response-headers response-body-port)]
+      [(cons _location-header-label location-urlbytes)
+       (define location (string->url (bytes->string/latin-1 location-urlbytes)))
+       (void (port->bytes response-body-port)) ;; consume and discard input
+       (close-input-port response-body-port)
+       (log-debug "http-follow-redirects: Following redirection to ~a\n"
+                  location-urlbytes)
+       (call-with-values (lambda () (custom-http-sendrecv/url location
+                                                              #:method method))
+                         (check-response method (- remaining-redirect-count 1)))])
+    (values status-line response-headers response-body-port)))
+
+(define ((http-follow-redirects method)
+         status-line
+         response-headers
+         response-body-port)
+  ((check-response method (http-redirection-limit))
    status-line
    response-headers
    response-body-port))
 
-;; Already present in net/url, but that variant doesn't take #:version
-;; or allow overriding of #:ssl? and #:port.
-;;
-;; Furthermore, currently 2016-08-14 there is a fd leak when using
-;; method HEAD with `http-sendrecv` [1], so we implement our own crude
-;; connection management here.
-;;
-;; [1] https://github.com/racket/racket/issues/1414
-;;
-(define (http-sendrecv/url u
-                           #:ssl? [ssl? (equal? (url-scheme u) "https")]
-                           #:port [port (or (url-port u) (if ssl? 443 80))]
-                           #:version [version #"1.1"]
-                           #:method [method #"GET"]
-                           #:headers [headers '()]
-                           #:data [data #f]
-                           #:content-decode [decodes '(gzip)])
-  (define hc (http-conn-open (url-host u) #:ssl? ssl? #:port port))
-  (http-conn-send! hc (url->string u)
-                   #:version version
-                   #:method method
-                   #:headers headers
-                   #:data data
-                   #:content-decode decodes
-                   #:close? #t)
-  (begin0 (http-conn-recv! hc #:method method #:content-decode decodes #:close? #t)
-    (when (member method (list #"HEAD" "HEAD" 'HEAD))
-      (http-conn-close! hc))))
+(define (custom-http-sendrecv/url u #:method method)
+  (http-sendrecv/url u #:method method))
 
 (define-syntax-rule (http/interpret-response customization ... req-expr)
   (call-with-values (lambda () req-expr)
@@ -151,10 +126,15 @@
                     (http-follow-redirects customization ...)))
 
 (module+ test
-  (require rackunit)
-
-  (http/simple-interpret-response
-   (http/follow-redirects
-    #"HEAD"
-    (http-sendrecv/url (string->url "http://google.com/") #:method #"HEAD")))
-  )
+  (define parent-cust (current-custodian))
+  (define this-cust (make-custodian))
+  (parameterize ([current-custodian this-cust])
+    (for ([i (in-range 100)])
+      (http/simple-interpret-response
+       (http/follow-redirects
+        #"HEAD"
+        (custom-http-sendrecv/url (string->url "http://google.com/")
+                                  #:method #"HEAD")))))
+  (require racket/pretty)
+  (pretty-print
+   (custodian-managed-list this-cust parent-cust)))
