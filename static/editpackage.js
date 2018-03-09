@@ -34,7 +34,7 @@ function preenSourceType(e) {
     case "git":
       previewGroup.show();
       pieces = showhide(false, true, true, true, true, true);
-      previewUrl = pieces[1] + "://" + pieces[2] + "/" + pieces[3] +
+      previewUrl = "https" + "://" + pieces[2] + "/" + pieces[3] +
         (pieces[5] ? "?path=" + pieces[5] : "") +
         (pieces[4] && (pieces[4] !== 'master') ? '#' + pieces[4] : "");
       break;
