@@ -692,8 +692,9 @@
   (define dep-failure-log-url (package-build-dep-failure-log pkg))
   (define test-failure-log-url (package-build-test-failure-log pkg))
   (define test-success-log-url (package-build-test-success-log pkg))
+  (define conflicts-log-url (package-build-conflicts-log pkg))
 
-  (define td-class (cond [failure-log-url "build_red"]
+  (define td-class (cond [(or failure-log-url conflicts-log-url) "build_red"]
                          [(not success-log-url) ""]
                          [(or dep-failure-log-url test-failure-log-url) "build_yellow"]
                          [else "build_green"]))
@@ -701,6 +702,7 @@
   `(td ((class ,td-class))
        ,@(for/list [(e (list (list failure-log-url "" "fails")
                              (list success-log-url "" "succeeds")
+                             (list conflicts-log-url "; has " "conflicts")
                              (list dep-failure-log-url "; has " "dependency problems")
                              (list test-failure-log-url "; has " "failing tests")))]
            (match-define (list u p l) e)
