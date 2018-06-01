@@ -1,19 +1,12 @@
 #lang racket/base
+;; Outer startup module - delegates to main-inner.rkt after installing a custodian
 
-(provide main)
+(provide main
+         outermost-custodian)
 
-(require reloadable)
-(require "entrypoint.rkt")
+(define *outermost-custodian* (current-custodian))
+(define (outermost-custodian) *outermost-custodian*)
 
 (define (main [config (hash)])
-  (make-persistent-state '*config* (lambda () config))
-  (void (make-reloadable-entry-point 'refresh-packages! "packages.rkt"))
-  (void (make-reloadable-entry-point 'rerender! "site.rkt"))
-  (start-service #:port (hash-ref config 'port (lambda ()
-                                                 (let ((port-str (getenv "SITE_PORT")))
-                                                   (if port-str (string->number port-str) 7443))))
-                 #:ssl? (hash-ref config 'ssl? (lambda () #t))
-                 #:reloadable? (hash-ref config 'reloadable? (lambda () (getenv "SITE_RELOADABLE")))
-                 (make-reloadable-entry-point 'request-handler "site.rkt")
-                 (make-reloadable-entry-point 'on-continuation-expiry "site.rkt")
-                 (make-reloadable-entry-point 'extra-files-paths "static.rkt")))
+  (parameterize ((current-custodian (make-custodian (outermost-custodian))))
+    ((dynamic-require "main-inner.rkt" 'main) config)))

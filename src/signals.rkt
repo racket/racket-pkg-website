@@ -51,5 +51,10 @@
                        (if (eof-object? items-to-rerender)
                            #f
                            items-to-rerender))))
+       (poll-signal "../signals/.dumpinfo"
+                    "Debug information dump request received"
+                    (lambda ()
+                      ((reloadable-entry-point->procedure
+                        (lookup-reloadable-entry-point 'debug-information-dump! "debug.rkt")))))
        (sleep 0.5)
        (loop)))))
