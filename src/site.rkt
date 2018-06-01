@@ -95,6 +95,7 @@
    [("json" "tag-search-completions") json-tag-search-completions]
    [("json" "formal-tags") json-formal-tags]
    [("pkgs-all.json") pkgs-all-json]
+   [("ping") ping-page]
    ))
 
 (define (on-continuation-expiry request)
@@ -1466,6 +1467,11 @@
 
 (define (pkgs-all-json request)
   (cors-json-response (lambda (response-port) (write-json (packages-jsexpr) response-port))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (ping-page request)
+  (response/full 200 #"Alive" (current-seconds) #"text/plain" '() '()))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
