@@ -6,7 +6,7 @@
 #
 # For example, to monitor racket-pkg-website, try
 #
-# ./ping-service.sh https://localhost:8444/ping 'touch .../signals/.dumpinfo; svc -du ...'
+# ./ping-service.sh https://localhost:8444/ping 'touch .../signals/.dumpinfo; sleep 10; svc -du ...'
 
 if [ "$#" != "2" ]
 then
