@@ -73,9 +73,12 @@
   (eq? pkg 'tombstone))
 
 (define (asynchronously-fetch-remote-packages state)
-  (thread (lambda ()
-            (define raw-remote-packages (fetch-remote-packages))
-            (manager-rpc 'refresh-packages! raw-remote-packages)))
+  (thread
+   (procedure-rename
+    (lambda ()
+      (define raw-remote-packages (fetch-remote-packages))
+      (manager-rpc 'refresh-packages! raw-remote-packages))
+    (string->symbol (format "~v" (list 'asynchronously-fetch-remote-packages (current-inexact-milliseconds))))))
   (struct-copy package-manager-state state
                [next-fetch-deadline (+ (current-inexact-milliseconds) package-fetch-interval)]))
 
