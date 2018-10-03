@@ -34,7 +34,7 @@
 
 (define package-index-url
   (or (@ (config) package-index-url)
-      "http://pkgs.racket-lang.org/pkgs-all.json.gz"))
+      "https://pkgs.racket-lang.org/pkgs-all.json.gz"))
 
 (define package-fetch-interval
   (* (or (@ (config) package-fetch-interval)

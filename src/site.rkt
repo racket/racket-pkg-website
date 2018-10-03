@@ -52,7 +52,7 @@
 (define nav-search "Search")
 
 (define (navbar-header)
-  `(a ((href "http://www.racket-lang.org/"))
+  `(a ((href "https://www.racket-lang.org/"))
     (img ((src ,(static-resource-url "/logo-and-text.png"))
           (height "60")
           (alt "Racket Package Index")))))
@@ -72,7 +72,7 @@
 
 (define pkg-build-baseurl
   (or (@ (config) pkg-build-baseurl)
-      "http://pkg-build.racket-lang.org/"))
+      "https://pkg-build.racket-lang.org/"))
 
 (struct draft-package (old-name name description authors tags versions) #:prefab)
 
@@ -143,11 +143,11 @@
                     (,nav-search ,(named-url search-page))
                     ("About"
                      (("The Racket Package System"
-                       "http://docs.racket-lang.org/pkg/getting-started.html")
+                       "https://docs.racket-lang.org/pkg/getting-started.html")
                       ("Package Builds" "https://pkg-build.racket-lang.org/about.html")))
                     ((div ,(glyphicon 'download-alt)
                           " Download Racket")
-                     "http://download.racket-lang.org/")
+                     "https://download.racket-lang.org/")
                     ))
                  (bootstrap-static-urlprefix
                   (if (rendering-static-page?)
@@ -730,9 +730,9 @@
            `(div ((class "jumbotron"))
                  (h1 "Racket Packages")
                  (p "These are the packages in the official "
-                    (a ((href "http://docs.racket-lang.org/pkg/getting-started.html"))
+                    (a ((href "https://docs.racket-lang.org/pkg/getting-started.html"))
                        "package catalog") ".")
-                 (p (a ((href "http://docs.racket-lang.org/pkg/cmdline.html"))
+                 (p (a ((href "https://docs.racket-lang.org/pkg/cmdline.html"))
                        (kbd "raco pkg install " (var "package-name")))
                     " installs a package.")
                  (p "You can "
