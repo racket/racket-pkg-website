@@ -335,7 +335,7 @@
                                   (role "form"))
                             ,(form-group 2 2 (label "email" "Email address")
                                          0 5 (email-input "email"))
-                            ,(form-group 2 2 (label "password" "Password:")
+                            ,(form-group 2 2 (label "password" "Password")
                                          0 5 (password-input "password"))
                             ,(form-group 4 5
                                          `(a ((href ,(embed-url (lambda (req) (register-form)))))
