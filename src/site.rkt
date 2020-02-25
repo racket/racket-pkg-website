@@ -702,8 +702,9 @@
                          [else "build_green"]))
 
   `(td ((class ,td-class))
-       ,@(for/list [(e (list (list failure-log-url "" "fails")
-                             (list success-log-url "" "succeeds")
+       ,@(for/list [(e (list (if failure-log-url
+                               (list failure-log-url "" "fails")
+                               (list success-log-url "" "succeeds"))
                              (list conflicts-log-url "; has " "conflicts")
                              (list dep-failure-log-url "; has " "dependency problems")
                              (list test-failure-log-url "; has " "failing tests")))]
