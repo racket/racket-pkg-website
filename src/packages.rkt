@@ -290,35 +290,53 @@
                              ;; to do this at package save time, but this will do for now.
                              (pkg->searchable-text pkg)))))
 
-;; prioritize-search :: string? (listof symbol?) -> (listof symbol?)
-;; Precondition: names are sorted ascendingly
-;; Postcondition: names are reordered so that exact match is prioritized first
-;;   followed by those whose prefix matches the search text,
-;;   followed by those that contain the search text,
-;;   followed by other results
-(define (prioritize-search text names)
-  (match-define-values (prefixing non-prefixing)
-    (partition (λ (name) (string-prefix? (symbol->string name) text)) names))
-  (match-define-values (containing non-containing)
-    (partition (λ (name) (string-contains? (symbol->string name) text)) non-prefixing))
-  (append prefixing containing non-containing))
-
 (define (package-search text tags)
   (define res (map (lambda (r) (regexp (regexp-quote r #f))) (string-split text)))
-  (define packages (manager-rpc 'packages))
-  (prioritize-search
-   text
-   (sort-package-names
-    (filter (lambda (package-name)
-              (define pkg (hash-ref packages package-name))
+
+  (define pkgs (hash->list (manager-rpc 'packages)))
+
+  (define tagged-pkgs
+    (for/fold ([pkgs pkgs]) ([tag-spec (in-list tags)])
+      (match-define (list tag-name include?) tag-spec)
+      (filter (λ (pkg-key-val)
+                (define pkg (cdr pkg-key-val))
+                (and (not (tombstone? pkg))
+                     ((if include? values not)
+                      (@ref (@ pkg search-terms) tag-name))))
+              pkgs)))
+
+  (define searched-pkgs
+    (filter (λ (pkg-key-val)
+              (define pkg (cdr pkg-key-val))
               (andmap (package-text-matches? pkg) res))
-            (hash-keys
-             (for/fold ((ps packages)) ((tag-spec tags))
-               (match-define (list tag-name include?) tag-spec)
-               (for/hash (((package-name pkg) (in-hash ps))
-                          #:when (and (not (tombstone? pkg))
-                                      ((if include? values not) (@ref (@ pkg search-terms) tag-name))))
-                 (values package-name pkg))))))))
+            tagged-pkgs))
+
+  ;; A key is a pair of a priority and a package name
+  ;; Note that the tombstone packages are filtered already,
+  ;; so it's safe to use (@ pkg ...)
+
+  (define (pkg->key pkg-key-val)
+    (define pkg (cdr pkg-key-val))
+    (define name (@ pkg name))
+    (define desc (@ pkg description))
+    (define priority
+      (for/sum ([text (in-list (string-split text))])
+        (cond
+          [(string=? name text) 1000]
+          [(string-prefix? name text) 100]
+          [(string-contains? name text) 10]
+          [(and desc (string-contains? desc text)) 1]
+          [else 0])))
+    (cons priority name))
+
+  (define (rank< a b)
+    (cond
+      [(= (car a) (car b)) (string-ci<? (cdr a) (cdr b))]
+      [else (> (car a) (car b))]))
+
+  (define sorted-pkgs (sort searched-pkgs rank< #:key pkg->key #:cache-keys? #t))
+
+  (map car sorted-pkgs))
 
 (define (packages-jsexpr)
   (manager-rpc 'packages))
