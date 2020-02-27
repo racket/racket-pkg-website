@@ -292,51 +292,46 @@
 
 (define (package-search text tags)
   (define res (map (lambda (r) (regexp (regexp-quote r #f))) (string-split text)))
+  (define packages (manager-rpc 'packages))
 
-  (define pkgs (hash->list (manager-rpc 'packages)))
+  (define (sort-package-names/priority names)
+    ;; A key is a pair of a priority and a package name
+    ;; where higher priority means it's more relevant to the search text
+    ;; Note that the tombstone packages are filtered already,
+    ;; so it's safe to use (@ pkg ...)
+    (define (name->key name)
+      (define pkg (hash-ref packages name))
+      (define pkg-name (@ pkg name))
+      (define pkg-desc (@ pkg description))
+      (define priority
+        (for/sum ([text (in-list (remove-duplicates (string-split text)))])
+          (cond
+            [(string=? pkg-name text) 1000]
+            [(string-prefix? pkg-name text) 100]
+            [(string-contains? pkg-name text) 10]
+            [(and pkg-desc (string-contains? pkg-desc text)) 1]
+            [else 0])))
+      (cons priority pkg-name))
 
-  (define tagged-pkgs
-    (for/fold ([pkgs pkgs]) ([tag-spec (in-list tags)])
-      (match-define (list tag-name include?) tag-spec)
-      (filter (λ (pkg-key-val)
-                (define pkg (cdr pkg-key-val))
-                (and (not (tombstone? pkg))
-                     ((if include? values not)
-                      (@ref (@ pkg search-terms) tag-name))))
-              pkgs)))
+    (define (key< a b)
+      (cond
+        [(= (car a) (car b)) (string-ci<? (cdr a) (cdr b))]
+        [else (> (car a) (car b))]))
 
-  (define searched-pkgs
-    (filter (λ (pkg-key-val)
-              (define pkg (cdr pkg-key-val))
-              (andmap (package-text-matches? pkg) res))
-            tagged-pkgs))
+    (sort names key< #:key name->key #:cache-keys? #t))
 
-  ;; A key is a pair of a priority and a package name
-  ;; Note that the tombstone packages are filtered already,
-  ;; so it's safe to use (@ pkg ...)
-
-  (define (pkg->key pkg-key-val)
-    (define pkg (cdr pkg-key-val))
-    (define name (@ pkg name))
-    (define desc (@ pkg description))
-    (define priority
-      (for/sum ([text (in-list (string-split text))])
-        (cond
-          [(string=? name text) 1000]
-          [(string-prefix? name text) 100]
-          [(string-contains? name text) 10]
-          [(and desc (string-contains? desc text)) 1]
-          [else 0])))
-    (cons priority name))
-
-  (define (rank< a b)
-    (cond
-      [(= (car a) (car b)) (string-ci<? (cdr a) (cdr b))]
-      [else (> (car a) (car b))]))
-
-  (define sorted-pkgs (sort searched-pkgs rank< #:key pkg->key #:cache-keys? #t))
-
-  (map car sorted-pkgs))
+  (sort-package-names/priority
+   (filter (lambda (package-name)
+             (define pkg (hash-ref packages package-name))
+             (andmap (package-text-matches? pkg) res))
+           (hash-keys
+            (for/fold ((ps packages)) ((tag-spec tags))
+              (match-define (list tag-name include?) tag-spec)
+              (for/hash (((package-name pkg) (in-hash ps))
+                         #:when (and (not (tombstone? pkg))
+                                     ((if include? values not)
+                                      (@ref (@ pkg search-terms) tag-name))))
+                (values package-name pkg)))))))
 
 (define (packages-jsexpr)
   (manager-rpc 'packages))
