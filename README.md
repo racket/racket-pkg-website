@@ -104,6 +104,26 @@ Therefore, when using automatic code reloading, use just
 and make sure to run `make clean` beforehand, if you've run `make
 compile` at all previously.
 
+### Testing configuration
+
+The configuration that will be convenient for local testing is `testing`. 
+To use this configuration, you must create `pkgs-all.json.gz` at the root 
+of the project. You could do so with the following command:
+
+```
+$ wget https://pkgs.racket-lang.org/pkgs-all.json.gz
+$ mv pkgs-all.json.gz pkgs-all.json
+$ gzip pkgs-all.json
+```
+
+Then run by using the command
+
+```
+$ CONFIG=testing make compile run
+```
+
+The configuration enables the automatic code reloading described above.
+
 ## Deployment
 
 ### Static Content
