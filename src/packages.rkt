@@ -290,41 +290,48 @@
                              ;; to do this at package save time, but this will do for now.
                              (pkg->searchable-text pkg)))))
 
+;; sort-package-names/priority :: (listof string?) (listof (cons/c symbol? package?))
+;; Rank packages by favoring those whose name prefixes or contains search strings
+;; and whose description contains search strings
+(define (sort-package-names/priority text-list packages)
+  ;; A key is a pair of a priority and a package name
+  ;; where higher priority means it's more relevant to the search text
+  ;; Note that the tombstone packages are filtered already,
+  ;; so it's safe to use (@ pkg ...)
+  (define (package-pair->key package-pair)
+    (define pkg (cdr package-pair))
+    (define pkg-name (@ pkg name))
+    (define pkg-desc (@ pkg description))
+    (define priority
+      (for/sum ([text (in-list text-list)])
+        (cond
+          ;; NOTE: the exact match will be the first prefix lexicographically
+          ;; so there's no need to consider it
+          [(string-prefix? pkg-name text) 100]
+          [(string-contains? pkg-name text) 10]
+          [(and pkg-desc (string-contains? pkg-desc text)) 1]
+          [else 0])))
+    (cons priority pkg-name))
+
+  (define (key< a b)
+    (cond
+      [(= (car a) (car b)) (string-ci<? (cdr a) (cdr b))]
+      [else (> (car a) (car b))]))
+
+  (define sorted (sort packages key< #:key package-pair->key #:cache-keys? #t))
+  (map car sorted))
+
 (define (package-search text tags)
-  (define res (map (lambda (r) (regexp (regexp-quote r #f))) (string-split text)))
+  (define text-list (remove-duplicates (string-split text)))
+  (define res (map (lambda (r) (regexp (regexp-quote r #f))) text-list))
   (define packages (manager-rpc 'packages))
 
-  (define (sort-package-names/priority names)
-    ;; A key is a pair of a priority and a package name
-    ;; where higher priority means it's more relevant to the search text
-    ;; Note that the tombstone packages are filtered already,
-    ;; so it's safe to use (@ pkg ...)
-    (define (name->key name)
-      (define pkg (hash-ref packages name))
-      (define pkg-name (@ pkg name))
-      (define pkg-desc (@ pkg description))
-      (define priority
-        (for/sum ([text (in-list (remove-duplicates (string-split text)))])
-          (cond
-            [(string=? pkg-name text) 1000]
-            [(string-prefix? pkg-name text) 100]
-            [(string-contains? pkg-name text) 10]
-            [(and pkg-desc (string-contains? pkg-desc text)) 1]
-            [else 0])))
-      (cons priority pkg-name))
-
-    (define (key< a b)
-      (cond
-        [(= (car a) (car b)) (string-ci<? (cdr a) (cdr b))]
-        [else (> (car a) (car b))]))
-
-    (sort names key< #:key name->key #:cache-keys? #t))
-
   (sort-package-names/priority
-   (filter (lambda (package-name)
-             (define pkg (hash-ref packages package-name))
+   text-list
+   (filter (lambda (package-pair)
+             (define pkg (cdr package-pair))
              (andmap (package-text-matches? pkg) res))
-           (hash-keys
+           (hash->list
             (for/fold ((ps packages)) ((tag-spec tags))
               (match-define (list tag-name include?) tag-spec)
               (for/hash (((package-name pkg) (in-hash ps))
