@@ -290,7 +290,7 @@
                              ;; to do this at package save time, but this will do for now.
                              (pkg->searchable-text pkg)))))
 
-;; sort-package-names/priority :: (listof string?) (listof (cons/c symbol? package?))
+;; sort-package-names/priority :: (listof string?) (listof (cons/c symbol? package?)) -> (listof symbol?)
 ;; Rank packages by favoring those whose name prefixes or contains search strings
 ;; and whose description contains search strings
 (define (sort-package-names/priority text-list packages)
@@ -305,8 +305,9 @@
     (define priority
       (for/sum ([text (in-list text-list)])
         (cond
-          ;; NOTE: the exact match will be the first prefix lexicographically
-          ;; so there's no need to consider it
+          ;; NOTE: no need to check for string=? (the exact match)
+          ;; because it will also be a prefix, and will be
+          ;; weighted more due to its lexicographic order.
           [(string-prefix? pkg-name text) 100]
           [(string-contains? pkg-name text) 10]
           [(and pkg-desc (string-contains? pkg-desc text)) 1]
