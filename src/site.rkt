@@ -830,6 +830,7 @@
       (let ((default-version (package-default-version pkg)))
         (bootstrap-response (~a package-name)
           #:title-element ""
+          #:description (package-description pkg)
           `(div ((class "jumbotron"))
                 (h1 ,(~a package-name))
                 (p ,(package-description pkg))
