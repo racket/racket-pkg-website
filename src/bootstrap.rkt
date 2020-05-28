@@ -53,6 +53,7 @@
                             #:code [code 200]
                             #:message [message #"Okay"]
                             #:body-class [body-class #f]
+                            #:description [description #f]
 			    .
 			    body-contents)
   (response/xexpr
@@ -65,6 +66,10 @@
 	   (meta ((http-equiv "X-UA-Compatible") (content "IE=edge")))
 	   (meta ((name "viewport") (content "width=device-width, initial-scale=1")))
 	   (title ,title)
+	   ,@(if (non-empty-string? description)
+		 `(meta ((name "description")
+			 (content ,description)))
+		 '())
 	   (link ((rel "stylesheet") (href ,(static "/bootstrap/css/bootstrap.min.css")) (type "text/css")))
 	   (link ((rel "stylesheet") (href ,(static "/jquery-ui.min.css")) (type "text/css")))
            (link ((rel "stylesheet") (href ,(static "/style.css")) (type "text/css")))
