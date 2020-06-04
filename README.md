@@ -4,7 +4,7 @@
 
 You will need to install the following Racket packages:
 
-    raco pkg install reloadable
+    raco pkg install --skip-installed reloadable
 
 ## Configuration
 
