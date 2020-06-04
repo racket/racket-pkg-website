@@ -12,7 +12,22 @@ if [ ! -f configs/${CONFIG}.rkt ]; then
     exit 1
 fi
 
-PLTSTDERR="info warning@cm warning@compiler/cm warning@module-prefetch warning@setup/parallel-build warning@cm-accomplice warning@online-check-syntax error@racket/contract"
+PLTSTDERR="
+	info
+	warning@GC
+	warning@cm
+	warning@compiler/cm
+	warning@module-prefetch
+	warning@setup/parallel-build
+	warning@cm-accomplice
+	warning@online-check-syntax
+	error@racket/contract
+	error@collapsible-cache-fail
+	error@collapsible-contract-arrow-wrapper-arity
+	error@collapsible-contract-bailout
+	error@collapsible-merging
+	error@collapsible-value-bailout
+        "
 export PLTSTDERR
 echo '============================================='
 cd src
