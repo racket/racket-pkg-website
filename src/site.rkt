@@ -1493,16 +1493,16 @@
                                         0 10(text-input "tags" tags-input
                                                         #:placeholder
                                                         "tag1 tag2 tag3 ..."))
-                           ,(form-group 2 10 (primary-button (glyphicon 'search) " Search"))
-                           (div ((class "search-results"))
-                                ,@(maybe-splice
-                                   (or (pair? tags) (not (equal? search-text "")))
-                                   (let ((package-name-list (package-search search-text tags)))
-                                     `(div
-                                       (p ((class "package-count"))
-                                          ,(format "~a packages found" (length package-name-list)))
-                                       (p ((class "package-count") (id "todo-msg")) "")
-                                       ,(package-summary-table package-name-list))))))))))
+                           ,(form-group 2 10 (primary-button (glyphicon 'search) " Search")))
+                         `(div ((class "search-results"))
+                               ,@(maybe-splice
+                                  (or (pair? tags) (not (equal? search-text "")))
+                                  (let ((package-name-list (package-search search-text tags)))
+                                    `(div
+                                      (p ((class "package-count"))
+                                         ,(format "~a packages found" (length package-name-list)))
+                                      (p ((class "package-count") (id "todo-msg")) "")
+                                      ,(package-summary-table package-name-list)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
