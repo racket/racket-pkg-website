@@ -1,3 +1,12 @@
+// Functions related to package listings as produced by `package-summary-table` in site.rkt
+
+function toggleBulkOperationSelections() {
+  var checkboxes = Array.from(document.querySelectorAll("input.selected-packages"));
+  var anySelected = checkboxes.some(function (n) { return n.checked; });
+  var newState = anySelected ? false : true;
+  checkboxes.forEach(function (n) { n.checked = newState; });
+}
+
 $(function() {
   "use strict";
 

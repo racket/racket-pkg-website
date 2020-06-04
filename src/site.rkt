@@ -96,6 +96,7 @@
    [("json" "formal-tags") json-formal-tags]
    [("pkgs-all.json") pkgs-all-json]
    [("ping") ping-page]
+   [("bulk-operation") #:method "post" bulk-operation-page]
    ))
 
 (define (on-continuation-expiry request)
@@ -244,17 +245,23 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define ((generic-input type) name [initial-value ""] #:placeholder [placeholder #f])
-  `(input ((class "form-control")
+(define ((generic-input type #:extra-classes [extra-classes1 '()])
+         name
+         [initial-value ""]
+         #:id [id name]
+         #:extra-classes [extra-classes2 '()]
+         #:placeholder [placeholder #f])
+  `(input ((class ,(string-join (cons "form-control" (append extra-classes1 extra-classes2)) " "))
            (type ,type)
            (name ,name)
-           (id ,name)
+           ,@(maybe-splice id `(id ,id))
            ,@(maybe-splice placeholder `(placeholder ,placeholder))
            (value ,initial-value))))
 
 (define email-input (generic-input "email"))
 (define password-input (generic-input "password"))
 (define text-input (generic-input "text"))
+(define checkbox-input (generic-input "checkbox"))
 
 (define (label for . content)
   `(label ((class "control-label") ,@(maybe-splice for `(for ,for)))
@@ -601,25 +608,50 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (package-summary-table package-names)
+  (define bulk-operations-enabled? (current-user-curator?))
+  (define column-count (+ 4 (if bulk-operations-enabled? 1 0)))
   (define-values (pkg-rows num-todos)
-    (build-pkg-rows/num-todos package-names))
-  `(table
-    ((class "packages sortable") (data-todokey ,(number->string num-todos)))
-    (thead
-     (tr
-      (th 'nbsp)
-      (th "Package")
-      (th "Description")
-      (th "Build")
-      (th ((style "display: none")) 'nbsp))) ;; todokey
-    (tbody
-     ,@(maybe-splice (null? package-names)
-                     `(tr (td ((colspan "4"))
-                              (div ((class "alert alert-info"))
-                                   "No packages found."))))
-     ,@pkg-rows)))
+    (build-pkg-rows/num-todos bulk-operations-enabled? package-names))
+  `(form ((role "form")
+          (action ,(named-url bulk-operation-page))
+          (method "post"))
+    (table
+     ((class "packages sortable") (data-todokey ,(number->string num-todos)))
+     (thead
+      ,@(maybe-splice
+         bulk-operations-enabled?
+         `(tr
+           (td ((colspan ,(~a column-count)))
+               (div ((class "input-group"))
+                    (select ((class "form-control") (id "bulk-action") (name "bulk-action"))
+                            (option ((value "")) "--- Select a bulk action to perform ---")
+                            (option ((value "make-ring-0")) "Set selected packages to ring 0")
+                            (option ((value "make-ring-1")) "Set selected packages to ring 1")
+                            (option ((value "make-ring-2")) "Set selected packages to ring 2")
+                            )
+                    (span ((class "input-group-btn"))
+                          (button ((class "btn btn-default") (type "submit"))
+                                  "Go!")))
+               (div ((class "input-group"))
+                    (button ((class "btn")
+                             (type "button")
+                             (onclick "toggleBulkOperationSelections()"))
+                            "Select all/none")))))
+      (tr
+       (th 'nbsp)
+       ,@(maybe-splice bulk-operations-enabled? `(th 'nbsp))
+       (th "Package")
+       (th "Description")
+       (th "Build")
+       (th ((style "display: none")) 'nbsp))) ;; todokey
+     (tbody
+      ,@(maybe-splice (null? package-names)
+                      `(tr (td ((colspan ,(~a column-count)))
+                               (div ((class "alert alert-info"))
+                                    "No packages found."))))
+      ,@pkg-rows))))
 
-(define (build-pkg-rows/num-todos package-names)
+(define (build-pkg-rows/num-todos bulk-operations-enabled? package-names)
   ;; Builds the list of rows in the package table as an x-exp.
   ;; Also returns the total number of non-zero todo keys,
   ;; representing packages with outstanding build errors or
@@ -653,6 +685,13 @@
                  (label-p (if (< todokey 5)
                               "label-warning"
                               "label-danger") "Todo")))
+          ,@(maybe-splice
+             bulk-operations-enabled?
+             `(td (p "Ring " ,(~a (package-ring pkg)))
+                  ,(checkbox-input "selected-packages"
+                                   (package-name pkg)
+                                   #:id #f
+                                   #:extra-classes `("selected-packages"))))
           (td (h2 ,(package-link (package-name pkg)))
               ,(authors-list (package-authors pkg)))
           (td (p ,(if (string=? "" (package-description pkg))
@@ -718,7 +757,7 @@
   (parameterize ((bootstrap-active-navigation nav-index)
                  (bootstrap-page-scripts (list (static-resource-url "/searchbox.js")
                                                (static-resource-url "/index.js")
-                                               (static-resource-url "/todos.js"))))
+                                               (static-resource-url "/package-list.js"))))
     (define package-name-list (package-search "" '((main-distribution #f)
                                                    (main-tests #f)
                                                    (deprecated #f))))
@@ -804,10 +843,17 @@
                        `(ul (li (a ((href ,(main-page-url)))
                                    "Return to the package index"))))))
 
+(define (current-user-superuser?)
+  (and (current-session)
+       (session-superuser? (current-session))))
+
+(define (current-user-curator?)
+  (and (current-session)
+       (session-curator? (current-session))))
+
 (define (current-user-may-edit? pkg)
   (or (member (current-email) (package-authors pkg))
-      (and (current-session)
-           (session-superuser? (current-session)))))
+      (current-user-superuser?)))
 
 (define (package-page request package-name-str)
   (define package-name (string->symbol package-name-str))
@@ -935,9 +981,7 @@
                   (tr (th "Ring")
                       (td ,(~a (or (package-ring pkg) "N/A"))
                           ,@(maybe-splice
-                             (and (package-ring pkg)
-                                  (current-session)
-                                  (session-curator? (current-session)))
+                             (and (package-ring pkg) (current-user-curator?))
                              " "
                              (ring-change-link pkg (- (package-ring pkg) 1) 'blacktriangledown)
                              (ring-change-link pkg (+ (package-ring pkg) 1) 'blacktriangle))))
@@ -1400,27 +1444,35 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (update-package-ring-page request package-name-str proposed-new-ring)
-  (define new-ring (clamp-ring proposed-new-ring))
   (authentication-wrap/require-login
    #:request request
-   (when (session-curator? (current-session))
-     (when (simple-json-rpc! backend-baseurl
-                             "/api/package/curate"
-                             (hash 'pkg package-name-str
-                                   'ring new-ring))
-       (define old-pkg (package-detail (string->symbol package-name-str)))
-       (let* ((new-pkg (hash-set old-pkg 'ring new-ring))
-              (completion-ch (make-channel)))
-         (replace-package! completion-ch old-pkg new-pkg)
-         (channel-get completion-ch))))
+   (update-package-rings! (list package-name-str) proposed-new-ring)
    (bootstrap-redirect (view-package-url package-name-str))))
+
+(define (update-package-rings! package-name-strings proposed-new-ring)
+  (if (not (current-user-curator?))
+      #f
+      (let ((new-ring (clamp-ring proposed-new-ring)))
+        (if (not (simple-json-rpc! backend-baseurl
+                                   "/api/package/curate"
+                                   (hash 'package-names package-name-strings
+                                         'ring new-ring)))
+            #f
+            (begin
+              (for [(package-name-str (in-list package-name-strings))]
+                (define old-pkg (package-detail (string->symbol package-name-str)))
+                (define new-pkg (hash-set old-pkg 'ring new-ring))
+                (let ((completion-ch (make-channel)))
+                  (replace-package! completion-ch old-pkg new-pkg)
+                  (channel-get completion-ch)))
+              #t)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (search-page request)
   (parameterize ((bootstrap-active-navigation nav-search)
                  (bootstrap-page-scripts (list (static-resource-url "/searchbox.js")
-                                               (static-resource-url "/todos.js"))))
+                                               (static-resource-url "/package-list.js"))))
     (authentication-wrap
      #:request request
      (define-form-bindings request ([search-text q ""]
@@ -1477,6 +1529,41 @@
 
 (define (ping-page request)
   (response/full 200 #"Alive" (current-seconds) #"text/plain" '() '()))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (bulk-operation-page request)
+  (authentication-wrap/require-login
+   #:request request
+   (cond
+     [(not (or (current-user-curator?) (current-user-superuser?)))
+      (bootstrap-redirect (main-page-url))]
+     [else
+      (define bindings (request-bindings request))
+      (define action (extract-binding/single 'bulk-action bindings))
+      (define package-names (extract-bindings 'selected-packages bindings))
+      (cond
+        [(equal? action "")
+         (bootstrap-response "No action selected.")]
+        [else
+         (send/suspend/dynamic
+          (lambda (k-url)
+            (bootstrap-response "Confirm bulk operation"
+                                `(div ((class "confirm-bulk-operation"))
+                                      (h2 "You are about to " (code ,action) " the following packages:")
+                                      (ul ,@(map (lambda (p) `(li ,p))
+                                                 package-names))
+                                      (p "This cannot be undone.")
+                                      (form ((action ,k-url) (method "post"))
+                                            (button ((class "btn btn-default") (type "submit"))
+                                                    "Confirm bulk operation"))))))
+         (match action
+           ["make-ring-0" (update-package-rings! package-names 0)]
+           ["make-ring-1" (update-package-rings! package-names 1)]
+           ["make-ring-2" (update-package-rings! package-names 2)]
+           [_ (error 'bulk-operation-page "No such action: ~a" action)])
+         (bootstrap-response "Bulk operation complete."
+                             `(a ((href ,(main-page-url))) "Return to main index page."))])])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

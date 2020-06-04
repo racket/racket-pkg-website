@@ -98,6 +98,20 @@ input#new_version {
     margin: 0;
 }
 
+.confirm-bulk-operation {
+    background-color: #ffdddd;
+    padding: 2em;
+    display: block;
+    border: solid black 1rem;
+    font-size: 120%;
+}
+.confirm-bulk-operation h2 {
+    margin: 0;
+}
+.confirm-bulk-operation ul {
+    margin: 2em;
+}
+
 .package-count {
     font-size: 120%;
 }
