@@ -9,6 +9,9 @@
             'ssl? #f
             'reloadable? #t
             'package-index-url (format "file://~a/pkgs-all.json.gz" pkg-index-generated-directory)
+            'user-directory (build-path (find-system-path 'home-dir)
+                                        "src/pkg-index/official/root/users.new")
+            'email-sender-address "tonyg@racket-lang.org"
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ;; Either:
             ;;

@@ -9,6 +9,8 @@
               (format "file://~a/public_html/pkg-index-static/pkgs-all.json.gz" var)
             'backend-baseurl "https://localhost:9004"
             'pkg-index-generated-directory (build-path var "public_html/pkg-index-static")
+            'user-directory (build-path var "pkg-index/users.new")
+            'email-sender-address "The Racket Package Server <pkgs@racket-lang.org>"
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ;; To configure a split, S3-based setup, comment out the following lines:
             ;;

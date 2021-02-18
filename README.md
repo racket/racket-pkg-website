@@ -4,7 +4,9 @@
 
 You will need to install the following Racket packages:
 
-    raco pkg install --skip-installed reloadable
+    raco pkg install --skip-installed \
+         https://github.com/racket/infrastructure-userdb.git#main \
+         reloadable
 
 ## Configuration
 
@@ -50,6 +52,11 @@ Keys useful for deployment:
    statically. The source file `static.rkt` in this codebase knows
    precisely which files and directories within
    `pkg-index-generated-directory` to upload to the final site.
+ - *user-directory*: directory containing the user database; should be
+   the same as `pkg-index` uses.
+ - *email-sender-address*: string; defaults to `pkgs@racket-lang.org`.
+   Used as the "from" address when sending authentication emails on
+   behalf of the server.
 
 Keys useful for development:
 

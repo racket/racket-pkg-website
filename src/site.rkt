@@ -10,7 +10,7 @@
 (require racket/match)
 (require racket/format)
 (require racket/date)
-(require racket/string)
+(require (only-in racket/string string-join string-split))
 (require racket/port)
 (require (only-in racket/list filter-map drop-right))
 (require (only-in racket/exn exn->string))
@@ -32,6 +32,7 @@
 (require "package-source.rkt")
 (require "http-utils.rkt")
 (require "challenge.rkt")
+(require "users.rkt")
 
 (define static-urlprefix
   (or (@ (config) static-urlprefix)
@@ -358,38 +359,28 @@
                                              (p ,error-message))))
                             ,(form-group 4 5 (primary-button "Log in"))))))))
 
-(define (authenticate-with-server! email password code)
-  (simple-json-rpc! #:sensitive? #t
-                    #:include-credentials? #f
-                    backend-baseurl
-                    "/api/authenticate"
-                    (hash 'email email
-                          'passwd password
-                          'code code)))
-
-(define (create-session-from-authentication-success! email password success)
-  ;; An "authentication success" is either #t, signalling a new user,
-  ;; or a hash-table with interesting facts in it.
-  (define user-facts (cond [(eq? success #t) (hasheq)]
-                           [(hash? success) success]
-                           [else (log-warning "Bad auth success for user ~v: ~v" email success)
-                                 (hasheq)]))
+(define (create-session-after-authentication-success! email password)
+  (define user-facts
+    (simple-json-rpc! #:sensitive? #t
+                      #:include-credentials? #f
+                      backend-baseurl
+                      "/api/authenticate"
+                      (hash 'email email
+                            'passwd password)))
+  (when (not (hash? user-facts)) ;; Uh-oh. Something went wrong
+    (error 'create-session-after-authentication-success! "Cannot retrieve user-facts for ~v" email))
   (create-session! email password
                    #:curator? (if (hash-ref user-facts 'curation #f) #t #f)
                    #:superuser? (if (hash-ref user-facts 'superuser #f) #t #f)))
 
 (define (process-login-credentials request)
-  (define-form-bindings request (email password))
-  (if (or (equal? (string-trim email) "")
-          (equal? (string-trim password) ""))
-      (login-form "Please enter your email address and password.")
-      (match (authenticate-with-server! email password "")
-        [(or "wrong-code" (? eof-object?))
-         (login-form "Something went awry; please try again.")]
-        [(or "emailed" #f)
-         (summarise-code-emailing "Incorrect password, or nonexistent user." email)]
-        [success
-         (create-session-from-authentication-success! email password success)])))
+  (define-form-bindings/trim request (email password))
+  (cond [(or (equal? email "") (equal? password ""))
+         (login-form "Please enter your email address and password.")]
+        [(not (login-password-correct? email password))
+         (login-form "Incorrect password, or nonexistent user.")]
+        [else
+         (create-session-after-authentication-success! email password)]))
 
 (define (register-form #:email [email ""]
                        #:email_for_code [email_for_code ""]
@@ -465,45 +456,38 @@
                                   ,(form-group 4 5 (primary-button "Continue")))))))))
 
 (define (apply-account-code request)
-  (define-form-bindings request (email code password confirm_password))
+  (define-form-bindings/trim request (email code password confirm_password))
   (define (retry msg)
     (register-form #:email email
                    #:code code
                    #:step2-error-message msg))
   (cond
-   [(equal? (string-trim email) "")
-    (retry "Please enter your email address.")]
-   [(equal? (string-trim code) "")
-    (retry "Please enter the code you received in your email.")]
-   [(not (equal? password confirm_password))
-    (retry "Please make sure the two password fields match.")]
-   [(equal? (string-trim password) "")
-    (retry "Please enter a password.")]
-   [else
-    (match (authenticate-with-server! email password code)
-      [(? eof-object?)
-       (retry "Something went awry. Please try again.")]
-      ["wrong-code"
-       (retry "The code you entered was incorrect. Please try again.")]
-      [(or "emailed" #f)
-       (retry "Something went awry; you have been emailed another code. Please check your email.")]
-      [success
-       ;; The email and password combo we have been given is good to go.
-       ;; Set a cookie and consider ourselves logged in.
-       (create-session-from-authentication-success! email password success)])]))
+    [(equal? email "")
+     (retry "Please enter your email address.")]
+    [(equal? code "")
+     (retry "Please enter the code you received in your email.")]
+    [(not (equal? password confirm_password))
+     (retry "Please make sure the two password fields match.")]
+    [(equal? password "")
+     (retry "Please enter a password.")]
+    [(not (registration-code-correct? email code))
+     (retry "The code you entered was incorrect. Please try again.")]
+    [else
+     (register-or-update-user! email password)
+     (create-session-after-authentication-success! email password)]))
 
 (define ((check-challenge challenge) request)
-  (define-form-bindings request (email_for_code question_answer))
+  (define-form-bindings/trim request (email_for_code question_answer))
   (define (retry msg-a msg-b)
     (register-form #:email_for_code email_for_code
                    #:step1a-error-message msg-a
                    #:step1b-error-message msg-b))
   (cond
-    [(equal? (string-trim email_for_code) "")
+    [(equal? email_for_code "")
      (log-info "REGISTRATION/RESET EMAIL: address missing")
      (retry "Please enter your email address."
             "Don't forget to answer the new question!")]
-    [(equal? (string-trim question_answer) "")
+    [(equal? question_answer "")
      (log-info "REGISTRATION/RESET EMAIL: no challenge answer provided")
      (retry #f
             "Please answer the anti-spam question. (It changes each time!)")]
@@ -523,21 +507,18 @@
      (log-info "  ✓ expected answer: ~v" (~a (challenge-answer challenge)))
      (log-info "  ✓ provided answer: ~v" question_answer)
      (log-info "  ✓ HTTP request details: ~v" request)
-     (authenticate-with-server! email_for_code "" "") ;; TODO check result?
-     (summarise-code-emailing "Account registration/reset code emailed" email_for_code)]))
-
-(define (summarise-code-emailing reason email)
-  (with-site-config
-   (send/suspend/dispatch/dynamic
-    (lambda (embed-url)
-      (bootstrap-response reason
-                          `(p
-                            "We've emailed an account registration/reset code to "
-                            (code ,email) ". Please check your email and then click "
-                            "the button to continue:")
-                          `(a ((class "btn btn-primary")
-                               (href ,(embed-url (lambda (req) (register-form)))))
-                            "Enter your code"))))))
+     (send-registration-or-reset-email! email_for_code)
+     (with-site-config
+       (send/suspend/dispatch/dynamic
+        (lambda (embed-url)
+          (bootstrap-response "Account registration/reset code emailed"
+                              `(p
+                                "We've emailed an account registration/reset code to "
+                                (code ,email_for_code) ". Please check your email and then click "
+                                "the button to continue:")
+                              `(a ((class "btn btn-primary")
+                                   (href ,(embed-url (lambda (req) (register-form)))))
+                                  "Enter your code")))))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1324,7 +1305,7 @@
 
 (define ((update-draft draft0) request)
   (define draft (read-draft-form draft0 (request-bindings request)))
-  (define-form-bindings request (action new_version))
+  (define-form-bindings/trim request (action new_version))
   (match action
     ["save_changes"
      (if (save-draft! draft)
@@ -1336,7 +1317,7 @@
                        draft))]
     ["add_version"
      (cond
-      [(equal? (string-trim new_version) "")
+      [(equal? new_version "")
        (package-form "Please enter a version number to add." draft)]
       [(assoc new_version (draft-package-versions draft))
        (package-form (format "Could not add version ~a, as it already exists." new_version)
