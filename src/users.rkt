@@ -31,8 +31,10 @@
       (send-account-registration-email! email)))
 
 (define (sender-address)
-  (or (@ (config) user-directory)
+  (or (@ (config) email-sender-address)
       "pkgs@racket-lang.org"))
+
+(log-racket-pkg-website/users-info "Will use sender address ~v" (sender-address))
 
 (define (send-password-reset-email! email)
   (log-racket-pkg-website/users-info "Sending password reset email to ~v" email)
