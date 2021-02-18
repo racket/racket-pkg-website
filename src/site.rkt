@@ -31,6 +31,7 @@
 (require "static.rkt")
 (require "package-source.rkt")
 (require "http-utils.rkt")
+(require "challenge.rkt")
 
 (define static-urlprefix
   (or (@ (config) static-urlprefix)
@@ -391,11 +392,15 @@
          (create-session-from-authentication-success! email password success)])))
 
 (define (register-form #:email [email ""]
+                       #:email_for_code [email_for_code ""]
                        #:code [code ""]
-                       #:error-message [error-message #f])
+                       #:step1a-error-message [step1a-error-message #f]
+                       #:step1b-error-message [step1b-error-message #f]
+                       #:step2-error-message [step2-error-message #f])
   (with-site-config
    (send/suspend/dispatch/dynamic
     (lambda (embed-url)
+      (define challenge (generate-challenge))
       (bootstrap-response "Register/Reset Account"
                           #:title-element ""
                           `(div ((class "registration-step-container"))
@@ -412,10 +417,29 @@
                             (p "Enter your email address below, and we'll send you one.")
                             (form ((class "form-horizontal")
                                    (method "post")
-                                   (action ,(embed-url notify-of-emailing))
+                                   (action ,(embed-url (check-challenge challenge)))
                                    (role "form"))
                                   ,(form-group 1 3 (label "email" "Email address")
-                                               0 5 (email-input "email_for_code"))
+                                               0 5 (email-input "email_for_code" email_for_code))
+                                  ,@(maybe-splice
+                                     step1a-error-message
+                                     (form-group 4 5
+                                                 `(div ((class "alert alert-danger"))
+                                                       (p ,step1a-error-message))))
+                                  ,(form-group 1 3 (label "antispam" "Anti-spam")
+                                               0 5 `(div ((class "form-control-static"))
+                                                         (p "Please help us defend our "
+                                                            "infrastructure from spammers "
+                                                            "by answering the following question.")
+                                                         ,@(maybe-splice
+                                                            step1b-error-message
+                                                            `(div ((class "alert alert-danger"))
+                                                                  (p ,step1b-error-message)))
+                                                         ,(challenge-question challenge)
+                                                         ,(form-group
+                                                           0 2 `(p ((class "form-control-static"))
+                                                                   (b "Answer:"))
+                                                           0 10 (text-input "question_answer"))))
                                   ,(form-group 4 5 (primary-button "Email me a code"))))
 
                           `(div
@@ -434,10 +458,10 @@
                                   ,(form-group 1 3 (label "password" "Confirm password")
                                                0 5 (password-input "confirm_password"))
                                   ,@(maybe-splice
-                                     error-message
+                                     step2-error-message
                                      (form-group 4 5
                                                  `(div ((class "alert alert-danger"))
-                                                   (p ,error-message))))
+                                                   (p ,step2-error-message))))
                                   ,(form-group 4 5 (primary-button "Continue")))))))))
 
 (define (apply-account-code request)
@@ -445,7 +469,7 @@
   (define (retry msg)
     (register-form #:email email
                    #:code code
-                   #:error-message msg))
+                   #:step2-error-message msg))
   (cond
    [(equal? (string-trim email) "")
     (retry "Please enter your email address.")]
@@ -468,10 +492,39 @@
        ;; Set a cookie and consider ourselves logged in.
        (create-session-from-authentication-success! email password success)])]))
 
-(define (notify-of-emailing request)
-  (define-form-bindings request (email_for_code))
-  (authenticate-with-server! email_for_code "" "") ;; TODO check result?
-  (summarise-code-emailing "Account registration/reset code emailed" email_for_code))
+(define ((check-challenge challenge) request)
+  (define-form-bindings request (email_for_code question_answer))
+  (define (retry msg-a msg-b)
+    (register-form #:email_for_code email_for_code
+                   #:step1a-error-message msg-a
+                   #:step1b-error-message msg-b))
+  (cond
+    [(equal? (string-trim email_for_code) "")
+     (log-info "REGISTRATION/RESET EMAIL: address missing")
+     (retry "Please enter your email address."
+            "Don't forget to answer the new question!")]
+    [(equal? (string-trim question_answer) "")
+     (log-info "REGISTRATION/RESET EMAIL: no challenge answer provided")
+     (retry #f
+            "Please answer the anti-spam question. (It changes each time!)")]
+    [(not (challenge-passed? challenge question_answer))
+     (log-info "REGISTRATION/RESET EMAIL: challenge answer incorrect")
+     (log-info "  ✗ email: ~v" email_for_code)
+     (log-info "  ✗ challenge expr: ~a" (challenge-expr challenge))
+     (log-info "  ✗ expected answer: ~v" (~a (challenge-answer challenge)))
+     (log-info "  ✗ provided answer: ~v" question_answer)
+     (log-info "  ✗ HTTP request details: ~v" request)
+     (retry #f
+            "Unfortunately, that was not the correct answer. Please try this new question.")]
+    [else
+     (log-info "REGISTRATION/RESET EMAIL: sent")
+     (log-info "  ✓ email: ~v" email_for_code)
+     (log-info "  ✓ challenge expr: ~a" (challenge-expr challenge))
+     (log-info "  ✓ expected answer: ~v" (~a (challenge-answer challenge)))
+     (log-info "  ✓ provided answer: ~v" question_answer)
+     (log-info "  ✓ HTTP request details: ~v" request)
+     (authenticate-with-server! email_for_code "" "") ;; TODO check result?
+     (summarise-code-emailing "Account registration/reset code emailed" email_for_code)]))
 
 (define (summarise-code-emailing reason email)
   (with-site-config
