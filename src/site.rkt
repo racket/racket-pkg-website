@@ -430,7 +430,10 @@
                                                          ,(form-group
                                                            0 2 `(p ((class "form-control-static"))
                                                                    (b "Answer:"))
-                                                           0 10 (text-input "question_answer"))))
+                                                           0 10 (text-input "question_answer"))
+                                                         ,(text-input "body"
+                                                                      #:extra-classes
+                                                                      '("not-shown-to-humans"))))
                                   ,(form-group 4 5 (primary-button "Email me a code"))))
 
                           `(div

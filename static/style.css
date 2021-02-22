@@ -83,6 +83,10 @@ input#new_version {
     width: 6em;
 }
 
+.not-shown-to-humans {
+    display: none;
+}
+
 .confirm-package-deletion {
     background-color: red;
     padding: 2em;
