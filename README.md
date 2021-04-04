@@ -5,7 +5,7 @@
 You will need to install the following Racket packages:
 
     raco pkg install --skip-installed \
-         https://github.com/racket/infrastructure-userdb.git#main \
+         'https://github.com/racket/infrastructure-userdb.git#main' \
          reloadable
 
 ## Configuration
