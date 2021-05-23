@@ -22,7 +22,7 @@
 
 ;; A ParsedPackageSource is one of
 ;; -- (simple-url-source    String (Option String) (Option Symbol))
-;; -- (git-source           String (Option String) Symbol Symbol String (Option Number) String String String)
+;; -- (git-source           String (Option String) Symbol Symbol String (Option Number) String (U String 'head) String)
 (struct parsed-package-source (url-string inferred-name type) #:prefab)
 (struct simple-url-source parsed-package-source () #:prefab)
 (struct git-source parsed-package-source (transport host port repo commit path) #:prefab)
@@ -54,7 +54,7 @@
        (complain "local file or directory package source types are not permitted")
        #f]
 
-      [(or 'git 'github)
+      [(or 'git 'github 'git-url)
        (with-handlers ([void (lambda (e) (simple-url-source p name type))])
          (define u (string->url p))
          (define-values (transport host port repo commit path) (split-git-or-hub-url u #:type type))
@@ -91,7 +91,10 @@
            #t
            (append (->url-path (regexp-replace #rx"[.]git$" repo ""))
                    (list (path/param "tree" '())
-                         (path/param commit '()))
+                         (path/param (if (eq? commit 'head)
+                                         "HEAD"
+                                         commit)
+                                     '()))
                    (->url-path path))
            '()
            #f))]
@@ -99,16 +102,18 @@
 
 (define (unparse-package-source s)
   (match s
-    [(git-source _ _ _ transport host port repo commit path)
+    [(git-source _ _ type transport host port repo commit path)
      (url->string
-      (url (symbol->string transport)
+      (url (case type
+             [(git-url) (format "git+~a" transport)]
+             [else (symbol->string transport)])
            #f
            host
            port
            #t
            (->url-path repo)
            (match path ["" '()] [_ (list (cons 'path path))])
-           (match commit [#f #f] ["master" #f] [_ commit])))]
+           (match commit [#f #f] ['head #f] [_ commit])))]
     [(simple-url-source u _ _)
      u]))
 
@@ -124,6 +129,7 @@
     (list
      "http://github.com/test/repo.git"
      "https://github.com/test/repo.git"
+     "git+https://github.com/test/repo"
      "http://leastfixedpoint.com:55555/foo/bar.git?path=zot/quux/baz#release"
      "git://leastfixedpoint.com:55555/foo/bar.git?path=zot/quux/baz#release"
      "github://github.com/foo/bar/master"
@@ -143,7 +149,7 @@
       type))
 
   (define expected-types
-    (set 'git 'github 'file-url 'dir-url))
+    (set 'git 'github 'git-url))
 
   (check-equal? (set) (set-subtract seen-types expected-types))
   (check-equal? (set) (set-subtract expected-types seen-types))

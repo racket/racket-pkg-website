@@ -1174,7 +1174,7 @@
                              [(_ _) (format "~a:~a" host port)])
                            repo
                            (match c
-                             ["master" ""]
+                             ['head ""]
                              [_ c])
                            path)]))
               `(tr
