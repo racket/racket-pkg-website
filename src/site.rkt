@@ -252,12 +252,19 @@
          [initial-value ""]
          #:id [id name]
          #:extra-classes [extra-classes2 '()]
-         #:placeholder [placeholder #f])
-  `(input ((class ,(string-join (cons "form-control" (append extra-classes1 extra-classes2)) " "))
+         #:placeholder [placeholder #f]
+         #:checked? [checked? #f]
+         #:no-class? [no-class? #f])
+  `(input ((class ,(string-join (let ([l (append extra-classes1 extra-classes2)])
+                                  (if no-class?
+                                      l
+                                      (cons "form-control" l)))
+                                " "))
            (type ,type)
            (name ,name)
            ,@(maybe-splice id `(id ,id))
            ,@(maybe-splice placeholder `(placeholder ,placeholder))
+           ,@(maybe-splice checked? `(checked "on"))
            (value ,initial-value))))
 
 (define email-input (generic-input "email"))
@@ -1156,13 +1163,22 @@
                      (and label-text (label (control-name name) label-text))
                      0 (if label-text 9 12)
                      (text-input (control-name name) value #:placeholder placeholder)))
-              (define-values (source-type simple-url g-transport g-host+port g-repo g-commit g-path)
+              (define (checkbox name label-text #:checked? [checked? #f])
+                (row #:id (group-name name)
+                     0 12
+                     `(span
+                       ,(checkbox-input (control-name name) "on"
+                                        #:no-class? #t
+                                        #:checked? checked?)
+                       " "
+                       ,(label (control-name name) label-text))))
+              (define-values (source-type simple-url g-transport g-host+port g-repo g-commit g-path g-git-plus?)
                 (match parsed-source
                   [#f
-                   (values "simple" "" "" "" "" "" "")]
+                   (values "simple" "" "" "" "" "" "" #f)]
                   [(simple-url-source u _ _)
-                   (values "simple" u "" "" "" "" "")]
-                  [(git-source _ _ _ tr host port repo c path)
+                   (values "simple" u "" "" "" "" "" #f)]
+                  [(git-source _ _ type tr host port repo c path)
                    (values "git"
                            ""
                            (symbol->string tr)
@@ -1176,7 +1192,8 @@
                            (match c
                              ['head ""]
                              [_ c])
-                           path)]))
+                           path
+                           (eq? type 'git-url))]))
               `(tr
                 (td ,version
                     ,@(maybe-splice
@@ -1210,8 +1227,11 @@
                             ,(textfield "simple_url" #f simple-url)
                             ,(textfield "g_host_port" "Host" g-host+port)
                             ,(textfield "g_repo" "Repository" g-repo "user/repo")
-                            ,(textfield "g_commit" "Branch or commit" g-commit "master")
-                            ,(textfield "g_path" "Path within repository" g-path))))))
+                            ,(textfield "g_commit" "Branch or commit" g-commit "branch")
+                            ,(textfield "g_path" "Path within repository" g-path)
+                            ,(checkbox "g_git_plus"
+                                       "Avoid “.git” suffix (requires clients running Racket v8.1 or later)"
+                                       #:checked? g-git-plus?))))))
 
           (tr (td ((colspan "2"))
                   (div ((class "form-inline"))
@@ -1221,7 +1241,7 @@
                                 (type "submit")
                                 (name "action")
                                 (value "add_version"))
-                               ,(glyphicon 'plus-sign) " Add new version"))))
+                               ,(glyphicon 'plus-sign) " Add Racket version that will have a different source"))))
           ))
 
       (parameterize ((bootstrap-page-scripts (list (static-resource-url "/editpackage.js"))))
@@ -1346,12 +1366,13 @@
     (define simple_url (vg 'simple_url ""))
     (define g_host_port (vg 'g_host_port ""))
     (define g_repo0 (vg 'g_repo ""))
+    (define git-plus? (equal? (vg 'g_git_plus "") "on"))
     (define g_repo (cond
-                     [(regexp-match #rx"[.]git$" g_repo0) g_repo0]
+                     [(or git-plus? (regexp-match #rx"[.]git$" g_repo0)) g_repo0]
                      [else (string-append g_repo0 ".git")]))
     (define g_commit0 (vg 'g_commit ""))
     (define g_path (vg 'g_path ""))
-    (define g_commit (if (equal? g_commit0 "") "master" g_commit0))
+    (define g_commit (if (equal? g_commit0 "") 'head g_commit0))
     (define-values (g_host g_port)
       (match (string-split g_host_port ":")
         [(list host) (values host #f)]
@@ -1360,7 +1381,7 @@
     (define source
       (match type
         ["simple" simple_url]
-        ["git" (unparse-package-source (git-source "" #f #f
+        ["git" (unparse-package-source (git-source "" #f (if git-plus? 'git-url 'git)
                                                    'https
                                                    g_host
                                                    g_port

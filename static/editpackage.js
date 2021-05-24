@@ -16,15 +16,20 @@ function preenSourceType(e) {
     } else {
       c.hide();
     }
-    return control(e, n).val();
+    var ctl = control(e, n);
+    if (ctl.is(':checkbox'))
+      return ctl.prop('checked');
+    else
+      return ctl.val();
   }
-  function showhide(s, gt, gh, gr, gc, gp) {
+  function showhide(s, gt, gh, gr, gc, gp, ggp) {
     return [showhide1("simple_url", s),
 	    showhide1("g_transport", gt),
 	    showhide1("g_host_port", gh),
 	    showhide1("g_repo", gr),
 	    showhide1("g_commit", gc),
-	    showhide1("g_path", gp)];
+	    showhide1("g_path", gp),
+	    showhide1("g_git_plus", ggp)];
   }
   var pieces;
   var previewUrl;
@@ -33,15 +38,18 @@ function preenSourceType(e) {
   switch (e.value) {
     case "git":
       previewGroup.show();
-      pieces = showhide(false, true, true, true, true, true);
-      previewUrl = "https" + "://" + pieces[2] + "/" + pieces[3] +
-        (pieces[5] ? "?path=" + pieces[5] : "") +
-        (pieces[4] && (pieces[4] !== 'master') ? '#' + pieces[4] : "");
+      pieces = showhide(false, true, true, true, true, true, true);
+      console.log(pieces[6]);
+      previewUrl = (pieces[6] ? "git+" : "") +
+          "https" + "://" + pieces[2] + "/" + pieces[3] +
+          ((pieces[6] || pieces[3].match(/[.]git$/)) ? "" : ".git") +
+          (pieces[5] ? "?path=" + pieces[5] : "") +
+          (pieces[4] ? '#' + pieces[4] : "");
       break;
     case "simple":
     default:
       previewGroup.hide();
-      pieces = showhide(true, false, false, false, false, false);
+      pieces = showhide(true, false, false, false, false, false, false);
       previewUrl = pieces[0];
       break;
   }
@@ -70,7 +78,7 @@ $(document).ready(function () {
   $(".package-version-source-type").each(function (index, e) {
     var preenE = function () { preenSourceType(e); };
     $(e).change(preenE);
-    var names = ['simple_url', 'g_transport', 'g_host_port', 'g_repo', 'g_commit', 'g_path'];
+      var names = ['simple_url', 'g_transport', 'g_host_port', 'g_repo', 'g_commit', 'g_path', 'g_git_plus'];
     for (var i = 0; i < names.length; i++) {
       control(e, names[i]).change(preenE).keyup(preenE);
     }

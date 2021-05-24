@@ -15,4 +15,5 @@
             'dynamic-urlprefix "https://localhost:8444"
             'backend-baseurl "https://localhost:8445"
             'disable-cache? #t
-            'pkg-index-generated-directory "/dummy/path/of/pkg-index"))
+            'pkg-index-generated-directory "/dummy/path/of/pkg-index"
+            'user-directory (build-path (find-system-path 'addon-dir) "pkg-website-test-users")))
