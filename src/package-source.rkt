@@ -10,6 +10,7 @@
          parsed-package-source-human-tree-url
          unparse-package-source
          package-source->human-tree-url
+         package-source->human-url
          (struct-out parsed-package-source)
          (struct-out simple-url-source)
          (struct-out git-source))
@@ -123,6 +124,10 @@
 (define (package-source->human-tree-url source)
   (define-values (parsed complaints) (parse-package-source source))
   (if parsed (parsed-package-source-human-tree-url parsed) source))
+
+(define (package-source->human-url source)
+  (define-values (parsed complaints) (parse-package-source source))
+  (if parsed (parsed-package-source-human-url parsed) source))
 
 (module+ test
   (define test-data

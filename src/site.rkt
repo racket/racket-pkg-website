@@ -974,7 +974,7 @@
                      ,(if (equal? (@ default-version source)
                                   (@ default-version source_url))
                           `(a ((class "btn btn-default btn-lg")
-                               (href ,(@ default-version source_url)))
+                               (href ,(package-source->human-url (@ default-version source_url))))
                               ,(glyphicon 'download) " Download"
                               ;; ,(if (regexp-match? "(?i:\\.zip$)" (or (@ default-version source_url) ""))
                               ;;      " Zip file"
