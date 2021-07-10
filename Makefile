@@ -25,7 +25,7 @@ clean:
 keys: private-key.pem server-cert.pem
 
 private-key.pem:
-	openssl genrsa -des3 -passout pass:dummy -out $@ 1024
+	openssl genrsa -des3 -passout pass:dummy -out $@ 4096
 	openssl rsa -passin pass:dummy -in $@ -out $@
 
 server-cert.pem: private-key.pem
