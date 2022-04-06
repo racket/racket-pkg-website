@@ -26,8 +26,11 @@
                      #:port port
                      #:manager (make-threshold-LRU-manager
                                 on-continuation-expiry
-                                ;; This value is copied from web-server/servlet-env.rkt:
-                                (* 128 1024 1024))
+                                ;; The production service averages 200 - 350 MiB.
+                                ;; Using 512 MiB ensures e.g. forms live for a while without creating
+                                ;; too much memory pressure.
+                                ;; TODO: Make this configurable...?
+                                (* 512 1024 1024))
                      #:extra-files-paths (extra-files-paths)
                      #:ssl? ssl?
                      #:ssl-cert (and ssl? (build-path (current-directory) "../server-cert.pem"))
