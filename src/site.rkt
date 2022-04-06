@@ -102,6 +102,9 @@
    ))
 
 (define (on-continuation-expiry request)
+  (log-warning "Tried to use expired continuation for ~a, current memory use: ~a"
+               (url->string (request-uri request))
+               (current-memory-use))
   (with-site-config
     (bootstrap-continuation-expiry-handler request)))
 
