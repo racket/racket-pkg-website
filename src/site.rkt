@@ -29,6 +29,7 @@
 (require "config.rkt")
 (require "hash-utils.rkt")
 (require "static.rkt")
+(require "spdx.rkt")
 (require "package-source.rkt")
 (require "http-utils.rkt")
 (require "challenge.rkt")
@@ -602,6 +603,25 @@
 (define (tag-links tags)
   `(ul ((class "list-inline taglinks")) ,@(for/list ((tag (or tags '()))) `(li ,(tag-link tag)))))
 
+(define (license-links parsed)
+  `(ul ((class "list-inline licenselinks"))
+       ,@(match parsed
+           ['missing
+            '()]
+           [(cons 'valid xs)
+            `((li ,@xs))]
+           [(cons (and (or 'invalid 'ill-formed) status) xs)
+            `((li (span ((class "label label-danger"))
+                        ,(if (eq? 'ill-formed status)
+                             "Ill-formed metadata"
+                             "Unknown identifier"))
+                  " "
+                  ,@xs))])))
+
+(define missing-license-tooltip-attributes
+  `([title "To add it, define `license` in “info.rkt”."]
+    [style "cursor: help;"]))
+
 (define (utc->string utc)
   (if (and utc (not (zero? utc)))
       (string-append (date->string (seconds->date utc #f) #t) " (UTC)")
@@ -627,6 +647,7 @@
 (define (package-build-conflicts-log pkg)    (@ pkg build conflicts-log))
 (define (package-ring pkg)                   (@ pkg ring))
 (define (package-checksum-error pkg)         (@ pkg checksum-error))
+(define (package-license-jsexpr pkg)         (@ pkg license))
 
 (define (package-readme-url pkg)
   (@ (package-external-information (string->symbol (@ pkg name))) readme-url))
@@ -641,7 +662,7 @@
 (define (package-last-updated pkg)      (or (@ pkg last-updated) 0))
 (define (package-last-checked pkg)      (or (@ pkg last-checked) 0))
 (define (package-last-edit pkg)         (or (@ pkg last-edit) 0))
-(define (package-date-added pkg)         (or (@ pkg date-added) 0))
+(define (package-date-added pkg)        (or (@ pkg date-added) 0))
 (define (package-authors pkg)           (or (@ pkg authors) '()))
 (define (package-description pkg)       (or (@ pkg description) ""))
 (define (package-tags pkg)              (or (@ pkg tags) '()))
@@ -702,7 +723,7 @@
   ;; Builds the list of rows in the package table as an x-exp.
   ;; Also returns the total number of non-zero todo keys,
   ;; representing packages with outstanding build errors or
-  ;; failing tests, or which are missing docs or tags.
+  ;; failing tests, or which are missing docs, license metadata, or tags.
   (define now (/ (current-inexact-milliseconds) 1000))
   (define-values (pkg-rows num-todos)
     (for/fold ([pkg-rows null] [num-todos 0])
@@ -712,11 +733,18 @@
       (define has-readme? (pair? (package-readme-url pkg)))
       (define has-tags? (pair? (package-tags pkg)))
       (define has-desc? (not (string=? "" (package-description pkg))))
+      (define pkg-license (parse-license-jsexpr (package-license-jsexpr pkg)))
+      (define has-valid-license? (match pkg-license
+                                   [(cons 'valid _)
+                                    #t]
+                                   [_
+                                    #f]))
       (define todokey
-        (cond [(package-build-failure-log pkg) 5]
-              [(package-build-test-failure-log pkg) 4]
-              [(not (or has-docs? has-readme?)) 3]
-              [(not has-desc?) 2]
+        (cond [(package-build-failure-log pkg) 6]
+              [(package-build-test-failure-log pkg) 5]
+              [(not (or has-docs? has-readme?)) 4]
+              [(not has-desc?) 3]
+              [(not has-valid-license?) 2]
               [(not has-tags?) 1]
               [else 0]))
       (define row-xexp
@@ -729,7 +757,7 @@
                  (label-p "label-info" "New"))
               ,@(maybe-splice
                  (> 0 todokey)
-                 (label-p (if (< todokey 5)
+                 (label-p (if (< todokey 6)
                               "label-warning"
                               "label-danger") "Todo")))
           ,@(maybe-splice
@@ -757,7 +785,14 @@
                    (label-p "label-warning" "This package needs tags")
                    `(div
                      (span ((class "doctags-label")) "Tags: ")
-                     ,(tag-links (package-tags pkg)))))
+                     ,(tag-links (package-tags pkg))))
+              ,(if (eq? 'missing pkg-license)
+                   (label-p "label-warning"
+                            "This package needs license metadata"
+                            #:extra-attributes missing-license-tooltip-attributes)
+                   `(div
+                     (span ((class "doctags-label")) "License: ")
+                     ,(license-links pkg-license))))
           ,(build-status-td pkg)
           (td ((style "display: none")) ,(number->string todokey))))
       (values (cons row-xexp pkg-rows)
@@ -765,8 +800,10 @@
   ;; for/fold reverses pkg-rows, so un-reverse before returning.
   (values (reverse pkg-rows) num-todos))
 
-(define (label-p cls txt)
-  `(p (span ((class ,(string-append "label " cls))) ,txt)))
+(define (label-p cls txt #:extra-attributes [attrs '()])
+  `(p (span ([class ,(string-append "label " cls)]
+             ,@attrs)
+            ,txt)))
 
 (define (build-status-td pkg)
   ;; Build the index page cell for summarizing a package's build status.
@@ -920,7 +957,8 @@
      [(and (not (rendering-static-page?)) (use-cache?))
       (bootstrap-redirect (view-package-url package-name))]
      [else
-      (let ((default-version (package-default-version pkg)))
+      (let ((default-version (package-default-version pkg))
+            (pkg-license (parse-license-jsexpr (package-license-jsexpr pkg))))
         (bootstrap-response (~a package-name)
           #:title-element ""
           #:description (package-description pkg)
@@ -929,7 +967,7 @@
                 (p ,(package-description pkg))
                 (p ((class "build-status"))
                    "Build status: "
-                   ,@(for/list [(e (list (list package-build-failure-log
+                   ,@(for/list ([e (list (list package-build-failure-log
                                                "failed" "danger" "fire")
                                          (list package-build-success-log
                                                "ok" "success" "ok")
@@ -938,10 +976,30 @@
                                          (list package-build-test-failure-log
                                                "failing tests" "warning" "question-sign")
                                          (list package-build-test-success-log
-                                               "passing tests" "success" "ok")))]
+                                               "passing tests" "success" "ok"))])
                        (match-define (list url-proc str label-type glyphicon-type) e)
                        (define u (url-proc pkg))
-                       (if (not u) `(span) (build-status-button u str label-type glyphicon-type))))
+                       (if (not u) `(span) (build-status-button u str label-type glyphicon-type)))
+                   ,(let ()
+                      (define (warning str [attrs '()])
+                        (values "warning" "question-sign" str attrs))
+                      (define-values [label-type glyphicon-type str attrs]
+                        (match pkg-license
+                          [(cons 'valid _)
+                           (values "success" "ok" "valid license" '())]
+                          [(cons 'ill-formed _)
+                           (warning "ill-formed license")]
+                          [(cons 'invalid _)
+                           (warning "invalid license")]
+                          ;; use the word "metadata" here so the user knows how
+                          ;; we're getting the license information, since there
+                          ;; won't be details from `license-links` below
+                          ['missing
+                           (warning "missing license metadata" missing-license-tooltip-attributes)]))
+                      `(span " " (span ([class ,(format "build-status-button label label-~a"
+                                                        label-type)]
+                                        ,@attrs)
+                                       ,(glyphicon glyphicon-type) " " ,str))))
                 (div ((class "dropdown"))
                      ,@(let ((docs (package-docs pkg)))
                          (match docs
@@ -1023,6 +1081,8 @@
                       (td ,(doc-links (package-docs pkg))))
                   (tr (th "Tags")
                       (td ,(tag-links (package-tags pkg))))
+                  (tr (th "License")
+                      (td ,(license-links pkg-license)))
                   (tr (th "Last updated")
                       (td ,(utc->string (package-last-updated pkg))))
                   (tr (th "Ring")

@@ -94,7 +94,9 @@
   (define local-packages (package-manager-state-local-packages state))
   (define remote-packages (for/hash (((package-name pkg) (in-hash raw-remote-packages)))
                             (values package-name
-                                    (hash-set pkg '_SEARCHABLE-TEXT_
+                                    ;; we rely on interning to easily memoize SPDX validation
+                                    (hash-set (hash-update pkg 'license datum-intern-literal #f)
+                                              '_SEARCHABLE-TEXT_
                                               (pkg->searchable-text pkg)))))
   (define all-package-names (set-union (list->set (hash-keys local-packages))
                                        (list->set (hash-keys remote-packages))))
