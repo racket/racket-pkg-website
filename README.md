@@ -111,9 +111,7 @@ To use this configuration, you must create `pkgs-all.json.gz` at the root
 of the project. You could do so with the following command:
 
 ```
-$ wget https://pkgs.racket-lang.org/pkgs-all.json.gz
-$ mv pkgs-all.json.gz pkgs-all.json
-$ gzip pkgs-all.json
+$ wget --header="Accept-Encoding: gzip" https://pkgs.racket-lang.org/pkgs-all.json.gz
 ```
 
 Then run by using the command
