@@ -212,6 +212,7 @@
     [#"json" "application/json"]
     [#"png" "image/png"]
     [#"svg" "image/svg"]
+    [#"xml" "application/xml"]
     [#f "application/octet-stream"]
     [other ;; (log-info "Unknown extension in extension-map: ~a" other)
            "application/octet-stream"]))
