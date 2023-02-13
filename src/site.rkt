@@ -768,7 +768,10 @@
                                    #:id #f
                                    #:extra-classes `("selected-packages"))))
           (td (h2 ,(package-link (package-name pkg)))
-              ,(authors-list (package-authors pkg)))
+              ;; Temporarily disabled to prevent spammer scraping of emails.
+              ;; See https://github.com/racket/racket-pkg-website/issues/77
+              ;; for more discussion.
+              #;,(authors-list (package-authors pkg)))
           (td (p ,(if (string=? "" (package-description pkg))
                       `(span ((class "label label-warning")) "This package needs a description")
                       (package-description pkg)))
@@ -1074,7 +1077,10 @@
                    (pre ,err))])
 
           `(table ((class "package-details"))
-                  (tr (th "Authors")
+                  ;; Temporarily disabled to prevent spammer scraping of emails.
+                  ;; See https://github.com/racket/racket-pkg-website/issues/77
+                  ;; for more discussion.
+                  #;(tr (th "Authors")
                       (td (div ((class "authors-detail"))
                                ,(authors-list #:gravatars? #t (package-authors pkg)))))
                   (tr (th "Documentation")
