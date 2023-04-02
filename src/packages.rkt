@@ -25,6 +25,7 @@
 (require web-server/private/gzip)
 (require net/url)
 (require reloadable)
+(require infrastructure-userdb/display-name)
 (require "config.rkt")
 (require "daemon.rkt")
 (require "rpc.rkt")
@@ -271,7 +272,8 @@
   (sort-package-names (all-package-names)))
 
 (define (pkg->searchable-text pkg)
-  (string-join (flatten (list (or (@ pkg authors) '())
+  (string-join (flatten (list (for/list ([a (or (@ pkg authors) '())])
+                                (list a (display-name-obfuscated-email (email->display-name a))))
                               (map (match-lambda
                                     [(list _ path) path]
                                     [_ '()])

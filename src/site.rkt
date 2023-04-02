@@ -11,6 +11,7 @@
 (require racket/format)
 (require racket/date)
 (require (only-in racket/string string-join string-split))
+(require racket/symbol)
 (require racket/port)
 (require (only-in racket/list filter-map drop-right))
 (require (only-in racket/exn exn->string))
@@ -34,6 +35,7 @@
 (require "http-utils.rkt")
 (require "challenge.rkt")
 (require "users.rkt")
+(require "display-name.rkt")
 
 (define static-urlprefix
   (or (@ (config) static-urlprefix)
@@ -219,7 +221,7 @@
                                      (img ((src ,(gravatar-image-url (session-email session)
                                                                      48))))
                                      " "
-                                     ,(session-email session)
+                                     ,(session-email session) ;; display name ??
                                      " "
                                      (span ((class "caret"))))
                                   (ul ((class "dropdown-menu") (role "menu"))
@@ -230,8 +232,9 @@
                                              ,(glyphicon 'plus-sign) " New package"))
                                       (li (a ((href ,(tags-page-url
                                                       (list
-                                                       (format "author:~a"
-                                                               (session-email session))))))
+                                                       (display-name->preferred-tag
+                                                        (email->display-name
+                                                         (session-email session)))))))
                                              ,(glyphicon 'user) " My packages"))
                                       (li ((class "divider")))
                                       (li (a ((href
@@ -570,14 +573,18 @@
 (define (tags-page-url tags)
   (format "~a?~a"
           (named-url search-page)
-          (alist->form-urlencoded (list (cons 'tags (string-join tags))))))
+          (alist->form-urlencoded (list (cons 'tags (string-join (for/list ([t (in-list tags)])
+                                                                   (if (symbol? t)
+                                                                       (symbol->immutable-string t)
+                                                                       t))))))))
 
 (define (author-link author-name #:gravatar? [gravatar? #f])
-  `(a ((href ,(tags-page-url (list (format "author:~a" author-name)))))
-    ,@(maybe-splice gravatar?
-                    `(img ((src ,(gravatar-image-url author-name 48))))
-                    " ")
-    ,author-name))
+  (define dn (email->display-name author-name))
+  `(a ([href ,(tags-page-url (list (display-name->preferred-tag dn)))])
+      ,@(maybe-splice gravatar?
+                      `(img ([src ,(gravatar-image-url author-name 48)]))
+                      " ")
+      ,(display-name->xexpr dn)))
 
 (define (tag-link tag-name)
   `(a ((href ,(tags-page-url (list tag-name)))) ,tag-name))
@@ -768,10 +775,7 @@
                                    #:id #f
                                    #:extra-classes `("selected-packages"))))
           (td (h2 ,(package-link (package-name pkg)))
-              ;; Temporarily disabled to prevent spammer scraping of emails.
-              ;; See https://github.com/racket/racket-pkg-website/issues/77
-              ;; for more discussion.
-              #;,(authors-list (package-authors pkg)))
+              ,(authors-list (package-authors pkg)))
           (td (p ,(if (string=? "" (package-description pkg))
                       `(span ((class "label label-warning")) "This package needs a description")
                       (package-description pkg)))
@@ -1077,10 +1081,7 @@
                    (pre ,err))])
 
           `(table ((class "package-details"))
-                  ;; Temporarily disabled to prevent spammer scraping of emails.
-                  ;; See https://github.com/racket/racket-pkg-website/issues/77
-                  ;; for more discussion.
-                  #;(tr (th "Authors")
+                  (tr (th "Authors")
                       (td (div ((class "authors-detail"))
                                ,(authors-list #:gravatars? #t (package-authors pkg)))))
                   (tr (th "Documentation")
@@ -1510,18 +1511,18 @@
 
 ;; Based on (and copied from) the analogous code in meta/pkg-index/official/static.rkt
 (define (compute-search-terms ht)
-  (let* ([st (hasheq)]
-         [st (for/fold ([st st])
+  (let* ([st (for/fold ([st #hasheq()])
                        ([t (in-list (hash-ref ht 'tags (lambda () '())))])
                (hash-set st (string->symbol t) #t))]
          [st (hash-set
               st
               (string->symbol
-               (format "ring:~a" (hash-ref ht 'ring (lambda () 2)))) #t)]
-         [st (for/fold ([st st])
-                       ([a (in-list (string-split (hash-ref ht 'author (lambda () ""))))])
-               (hash-set
-                st (string->symbol (format "author:~a" a)) #t))]
+               (format "ring:~a" (hash-ref ht 'ring 2)))
+              #t)]
+         [st (for*/fold ([st st])
+                        ([a (in-list (string-split (hash-ref ht 'author "")))]
+                         [tag (in-list (display-name-tags (email->display-name a)))])
+               (hash-set st tag #t))]
          [st (if (null? (hash-ref ht 'tags (lambda () '())))
                  (hash-set st ':no-tag: #t)
                  st)]
