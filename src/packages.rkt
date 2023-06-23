@@ -101,9 +101,10 @@
   (define all-package-names (set-union (list->set (hash-keys local-packages))
                                        (list->set (hash-keys remote-packages))))
   (define new-local-packages
-    (for/fold ((acc (hash))) ((package-name all-package-names))
-      (define local-pkg (hash-ref local-packages package-name (lambda () #f)))
-      (define remote-pkg (hash-ref remote-packages package-name (lambda () #f)))
+    (for/fold ([acc (hash)])
+              ([package-name all-package-names])
+      (define local-pkg (hash-ref local-packages package-name #f))
+      (define remote-pkg (hash-ref remote-packages package-name #f))
       (define new-local-pkg
         (cond
          [(not local-pkg) remote-pkg]
