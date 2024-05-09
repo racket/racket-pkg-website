@@ -882,7 +882,7 @@
              (p ((class "package-count"))
                 ,(format "~a packages" (length package-name-list))
                 " "
-                (a ((href ,(format "~a?q=%20" (named-url search-page)))) "(see all, including packages tagged as \"deprecated\", \"main-distribution\", or \"main-test\")"))
+                (a ((href ,(format "~a?q=%20" (named-url search-page)))) "(see all, including packages tagged as \"deprecated\", \"main-distribution\", or \"main-tests\")"))
              (p ((class "package-count") (id "todo-msg")) "")
              ,(package-summary-table package-name-list))
            `(div ((class "jumbotron"))
