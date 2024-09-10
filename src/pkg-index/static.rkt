@@ -138,7 +138,7 @@
         x))
 
   (define (packages-conflict? left right)
-    (log! "static: computing conflict between ~v and ~v" left right)
+    #;(log! "static: computing conflict between ~v and ~v" left right)
     (define left-i (package-info left))
     (define right-i (package-info right))
     (define left-m (and left-i (hash-ref left-i 'modules #f)))
