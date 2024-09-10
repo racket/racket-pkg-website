@@ -11,8 +11,8 @@
          "static.rkt"
          "../readme.rkt")
 
-(define (update-all)
-  (update-checksums #f (package-list)))
+(define (update-all [force? #t])
+  (update-checksums force? (package-list)))
 (define (update-pkgs pkgs)
   (update-checksums #t pkgs))
 
@@ -186,8 +186,10 @@
   (log! "update: checking ~v" pkgs)
   (define changed
     (cond
-     [(empty? pkgs)
-      (update-all)]
+     [(eq? pkgs 'all)
+      (update-all #f)]
+     [(eq? pkgs 'all/force)
+      (update-all #t)]
      [else
       (update-pkgs pkgs)]))
   (log! "update: changes ~v" changed)
@@ -213,4 +215,6 @@
   (command-line
    #:program "update"
    #:args pkgs
-   (do-update! pkgs)))
+   (do-update! (if (null? pkgs)
+                   'all
+                   pkgs))))

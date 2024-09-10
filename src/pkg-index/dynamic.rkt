@@ -412,9 +412,6 @@
    ;; Static resources
    [else redirect-to-static]))
 
-(define-syntax-rule (forever . body)
-  (let loop () (begin . body) (loop)))
-
 (define (go)
   (define port (get-config port default-pkg-index-port))
   (define ssl? (get-config ssl? #t))
@@ -422,13 +419,14 @@
   (signal-static! empty)
   (thread
    (λ ()
-     (forever
+     (let loop ([initial? #t])
       (log! "update-t: Running scheduled build update.")
       (signal-build-update!)
       (log! "update-t: Running scheduled update.")
-      (signal-update!/beat empty)
+      (signal-update!/beat (if initial? 'all 'all/force))
       (log! "update-t: sleeping for 1 hour")
-      (sleep (* 1 60 60)))))
+      (sleep (* 1 60 60))
+      (loop #f))))
   (serve/servlet
    (wrap-with-cors-handler main-dispatch)
    #:command-line? #t
