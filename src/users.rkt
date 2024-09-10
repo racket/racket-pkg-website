@@ -11,10 +11,14 @@
 (require infrastructure-userdb)
 (require "config.rkt")
 (require "hash-utils.rkt")
+(require "default.rkt")
 
 (define-logger racket-pkg-website/users)
 
-(define userdb (userdb-config (@ (config) user-directory)
+(define userdb (userdb-config (config-path
+                               (or (@ (config) user-directory)
+                                   (default-users (or (@ (config) root)
+                                                      default-root))))
                               #t ;; writeable!
                               ))
 

@@ -9,9 +9,11 @@
 (require reloadable)
 (require "signals.rkt")
 (require "daemon.rkt")
+(require "default.rkt")
 
 (define (start-service* #:port [port 7443]
-                        #:ssl? [ssl? #t]
+                        #:ssl? [ssl? default-ssl?]
+                        #:root [root default-root]
                         request-handler-function
                         on-continuation-expiry
                         extra-files-paths)
@@ -33,12 +35,13 @@
                                 (* 512 1024 1024))
                      #:extra-files-paths (extra-files-paths)
                      #:ssl? ssl?
-                     #:ssl-cert (and ssl? (build-path (current-directory) "../server-cert.pem"))
-                     #:ssl-key (and ssl? (build-path (current-directory) "../private-key.pem"))
+                     #:ssl-cert (and ssl? (build-path root "server-cert.pem"))
+                     #:ssl-key (and ssl? (build-path root "private-key.pem"))
                      #:servlet-regexp #rx"")))))
 
-(define (start-service #:port [port 7443]
-                       #:ssl? [ssl? #t]
+(define (start-service #:port [port default-port]
+                       #:ssl? [ssl? default-ssl?]
+                       #:root [root default-root]
                        #:reloadable? [reloadable? #t]
                        request-handler-entry-point
                        on-continuation-expiry-entry-point
@@ -48,6 +51,7 @@
   (reload!)
   (start-service* #:port port
                   #:ssl? ssl?
+                  #:root root
                   (reloadable-entry-point->procedure request-handler-entry-point)
                   (reloadable-entry-point->procedure on-continuation-expiry-entry-point)
                   (reloadable-entry-point->procedure extra-files-paths-entry-point)))

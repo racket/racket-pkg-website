@@ -22,15 +22,19 @@ clean:
 
 ###########################################################################
 
-keys: private-key.pem server-cert.pem
+ROOT=compiled/root
 
-private-key.pem:
+keys: $(ROOT)/private-key.pem $(ROOT)/server-cert.pem
+
+$(ROOT)/private-key.pem:
+	mkdir -p $(ROOT)
 	openssl genpkey -algorithm RSA -out $@
 
-server-cert.pem: private-key.pem
+$(ROOT)/server-cert.pem: $(ROOT)/private-key.pem
+	mkdir -p $(ROOT)
 	openssl req -new -x509 -days 365 \
 		-subj /CN=beta.package.database.localhost \
-		-key private-key.pem -out $@
+		-key $(ROOT)/private-key.pem -out $@
 
 clean-keys:
-	rm -f private-key.pem server-cert.pem
+	rm -f $(ROOT)/private-key.pem $(ROOT)/server-cert.pem

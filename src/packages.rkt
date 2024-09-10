@@ -22,6 +22,7 @@
 (require racket/port)
 (require racket/string)
 (require racket/list)
+(require racket/path)
 (require web-server/private/gzip)
 (require net/url)
 (require reloadable)
@@ -30,12 +31,17 @@
 (require "daemon.rkt")
 (require "rpc.rkt")
 (require "hash-utils.rkt")
+(require "default.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define package-index-url
   (or (@ (config) package-index-url)
-      "https://pkgs.racket-lang.org/pkgs-all.json.gz"))
+      (getenv "PACKAGE_INDEX_URL")
+      (let ([static-gen (or (@ (config) pkg-index-generated-directory)
+                            default-static-gen)])
+        (string-append "file://"
+                       (path->string (simple-form-path (build-path static-gen "pkgs-all.json.gz")))))))
 
 (define package-fetch-interval
   (* (or (@ (config) package-fetch-interval)
@@ -59,7 +65,9 @@
                        ((error-display-handler) (exn-message e) e)
                        #f)])
       (define response-port
-        (get-pure-port (string->url package-index-url)))
+        (get-pure-port (string->url package-index-url)
+                       (list "Accept-Encoding: gzip")
+                       	#:redirections 10))
       (define response-bytes (port->bytes response-port))
       (close-input-port response-port)
       (define decompressed (gunzip/bytes response-bytes))

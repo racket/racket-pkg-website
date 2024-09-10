@@ -18,6 +18,10 @@
 (require net/url)
 (require net/uri-codec)
 (require web-server/servlet)
+(require (only-in web-server/dispatchers/dispatch
+                  next-dispatcher))
+(require (only-in web-server/private/util
+                  url-path->string))
 (require json)
 (require "gravatar.rkt")
 (require "bootstrap.rkt")
@@ -36,6 +40,7 @@
 (require "challenge.rkt")
 (require "users.rkt")
 (require "display-name.rkt")
+(require "default.rkt")
 
 (define static-urlprefix
   (or (@ (config) static-urlprefix)
@@ -43,15 +48,16 @@
 
 (define dynamic-urlprefix
   (or (@ (config) dynamic-urlprefix)
-      ""))
+      (format "https://localhost:~a" (or (@ (config) port)
+                                         default-port))))
 
 (define dynamic-static-urlprefix
   (or (@ (config) dynamic-static-urlprefix)
       ""))
 
 (define disable-cache?
-  (or (@ (config) disable-cache?)
-      #f))
+  (and (@ (config) disable-cache?)
+       #t))
 
 (define nav-index "Packages")
 (define nav-search "Search")
@@ -64,7 +70,8 @@
 
 (define backend-baseurl
   (or (@ (config) backend-baseurl)
-      "https://pkgd.racket-lang.org"))
+      (format "https://localhost:~a" (or (@ (config) pkg-index-port)
+                                         default-pkg-index-port))))
 
 (define default-empty-parsed-package-source
   (git-source "https://github.com/" #f 'git 'git "github.com" #f "" "" ""))
@@ -946,6 +953,12 @@
   (or (member (current-email) (package-authors pkg))
       (current-user-superuser?)))
 
+(define (would-forward-back-to-self? request new-url)
+  ;; If the cache is enabled but `static-urlprefix` is empty, for example,
+  ;; then we want to avoid going into a forwwarding loop and instead
+  ;; serve the URL as a file
+  (equal? (url-path->string (url-path (request-uri request))) new-url))
+
 (define (package-page request package-name-str)
   (define package-name (string->symbol package-name-str))
   (define pkg (package-detail package-name))
@@ -962,7 +975,10 @@
                           `(ul (li (a ((href ,(main-page-url)))
                                       "Return to the package index"))))]
      [(and (not (rendering-static-page?)) (use-cache?))
-      (bootstrap-redirect (view-package-url package-name))]
+      (define new-url (view-package-url package-name))
+      (if (would-forward-back-to-self? request new-url)
+          (next-dispatcher)
+          (bootstrap-redirect new-url))]
      [else
       (let ((default-version (package-default-version pkg))
             (pkg-license (parse-license-jsexpr (package-license-jsexpr pkg))))

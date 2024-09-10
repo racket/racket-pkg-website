@@ -2,15 +2,19 @@
 ;; Default configuration; should be suitable for live deployment.
 (require "../src/main.rkt")
 (define var (getenv "PKGSERVER_DATADIR"))
+
+(define pkg-index-port 9004)
+
 (main (hash 'port 8444
+            'pkg-index-port pkg-index-port
+            'root (build-path var "pkg-index")
             'reloadable? #t
             'var-path var
-            'package-index-url
-              (format "file://~a/public_html/pkg-index-static/pkgs-all.json.gz" var)
-            'backend-baseurl "https://localhost:9004"
+            'backend-baseurl (format "https://localhost:~a" pkg-index-port)
             'pkg-index-generated-directory (build-path var "public_html/pkg-index-static")
             'user-directory (build-path var "pkg-index/users.new")
             'email-sender-address "The Racket Package Server <pkgs@racket-lang.org>"
+
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ;; To configure a split, S3-based setup, comment out the following lines:
             ;;
@@ -38,4 +42,14 @@
             ;; aws-s3-bucket+path, and to *exclude* a slash from the
             ;; end of both static-urlprefix and dynamic-urlprefix.
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+            'pkg-index (hash
+                        'atom-package-url-format-string "https://pkgs.racket-lang.org/package/~a"
+
+                        ;; S3 bucket is disabled, because no one is reading pkgo.racket-lang.org;
+                        ;; communication to the front end goes through the filesystem
+                        's3-bucket #f
+                        's3-bucket-region #f
+
+                        'beat-s3-bucket "heartbeat.racket-lang.org")
             ))

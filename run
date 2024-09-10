@@ -1,13 +1,14 @@
 #!/bin/sh
 
+srcdir=`dirname "$0"`
+
 if [ -f ./run-prelude ]; then . ./run-prelude; fi
 
 if [ -z "$CONFIG" ]; then
-    CONFIG=$(hostname -s)
-    echo 'Environment variable CONFIG not defined; defaulting to "'"${CONFIG}"'"'
+    CONFIG="testing"
 fi
 
-if [ ! -f configs/${CONFIG}.rkt ]; then
+if [ ! -f ${srcdir}/configs/${CONFIG}.rkt ]; then
     echo "Config ${CONFIG} not found: configs/${CONFIG}.rkt not readable"
     exit 1
 fi
@@ -30,5 +31,4 @@ PLTSTDERR="
         "
 export PLTSTDERR
 echo '============================================='
-cd src
-exec ${RACKET}racket ../configs/${CONFIG}.rkt 2>&1
+exec ${RACKET}racket ${srcdir}/configs/${CONFIG}.rkt 2>&1

@@ -13,6 +13,7 @@
 (require racket/port)
 (require racket/promise)
 (require racket/file)
+(require racket/runtime-path)
 (require web-server/private/servlet)
 (require web-server/http/request-structs)
 (require web-server/http/response-structs)
@@ -23,6 +24,7 @@
 (require aws/s3)
 (require reloadable)
 (require "config.rkt")
+(require "default.rkt")
 (require "daemon.rkt")
 (require "rpc.rkt")
 (require "hash-utils.rkt")
@@ -42,7 +44,7 @@
 (define static-generated-directory
   ;; Relevant to static-output-type 'file only
   (config-path (or (@ (config) static-generated-directory)
-                   (build-path (var-path) "generated-htdocs"))))
+                   default-htdocs-gen)))
 
 (define static-content-target-directory
   ;; Relevant to static-output-type 'file only
@@ -51,7 +53,9 @@
 
 (define pkg-index-generated-directory
   (config-path (or (@ (config) pkg-index-generated-directory)
-                   (error 'pkg-index-generated-directory "Not specified"))))
+                   default-static-gen)))
+
+(define-runtime-path source-static-content-dir "../static")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Static rendering daemon -- Interface
@@ -304,5 +308,5 @@
 
 (define (extra-files-paths)
   (list static-generated-directory
-        (config-path "../static")
+        (config-path source-static-content-dir)
         pkg-index-generated-directory))

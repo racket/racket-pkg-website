@@ -17,6 +17,7 @@
 (require racket/match)
 (require racket/string)
 (require "../config.rkt")
+(require "../defaults.rkt")
 
 (module+ test (require rackunit))
 
@@ -171,7 +172,7 @@
                        (cdr elements0)
                        elements0))
   (match-define (cons bucket-path path-element-paths) elements)
-  (define full-bucket-path (build-path (var-path) "mock/aws-s3" bucket-path))
+  (define full-bucket-path (build-path default-s3-mock bucket-path))
   (values full-bucket-path
           (and (pair? path-element-paths)
                (path->string (apply build-path path-element-paths)))))
