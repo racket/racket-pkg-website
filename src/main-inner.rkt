@@ -21,6 +21,15 @@
 (define default-root "compiled/root")
 
 (define (main [config (hash)])
+  (when (hash-ref config 'ssl? default-ssl?)
+    (let ([root (hash-ref config 'root default-root)])
+      (define (check name)
+        (define p (build-path root name))
+        (unless (file-exists? p)
+          (error 'pkg-website "server will not work without ~a" p))) 
+      (check "server-cert.pem")
+      (check "private-key.pem")))
+
   ;; start the pkg-index back end
   (when (hash-ref config 'pkg-index (hash))
     (pkg-index:config (extract-pkg-index-config config))
@@ -32,7 +41,7 @@
   (void (make-reloadable-entry-point 'rerender! (as-module-path site.rkt)))
   (void (make-reloadable-entry-point 'debug-information-dump! (as-module-path debug.rkt)))
   (start-service #:port (hash-ref config 'port (lambda () default-port))
-                 #:ssl? (hash-ref config 'ssl? (lambda () #t))
+                 #:ssl? (hash-ref config 'ssl? (lambda () default-ssl?))
                  #:root (hash-ref config 'root default-root)
                  #:reloadable? (hash-ref config 'reloadable? (lambda () (getenv "SITE_RELOADABLE")))
                  (make-reloadable-entry-point 'request-handler (as-module-path site.rkt))

@@ -19,7 +19,7 @@
                                      (and port-str (string->number port-str)))
                                    9004))
 
-(define default-ssl? #t)
+(define default-ssl? (not (getenv "PKG_SERVER_HTTP")))
 
 ;; and put generated files (especially) in "compiled" to make it a
 ;; reliably excluded directory

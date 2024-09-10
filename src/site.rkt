@@ -1727,6 +1727,15 @@
                     "text/plain")
   (static-finish-update!))
 
+;; -> Void
+(define (rerender-index-and-flush!)
+  (static-render! #:mime-type "text/html"
+                  relative-named-url main-page
+                  #:filename "/index.html")
+  (static-render! #:mime-type "application/json"
+                  relative-named-url json-search-completions)
+  (static-finish-update!))
+
 (define (package-change-handler packages-to-render-before-issuing-completions ;; Setof Symbol
                                 pending-completions ;; Listof (Channelof Void)
                                 packages-to-render-in-idle-moments ;; Setof Symbol
@@ -1748,15 +1757,6 @@
                     relative-named-url
                     package-page
                     (symbol->string p)))
-
-  ;; -> Void
-  (define (rerender-index-and-flush!)
-    (static-render! #:mime-type "text/html"
-                    relative-named-url main-page
-                    #:filename "/index.html")
-    (static-render! #:mime-type "application/json"
-                    relative-named-url json-search-completions)
-    (static-finish-update!))
 
   ;; -> (U #f (-> Nothing))
   ;; Yield #f if no work can be done without an incoming message, or a procedure which
@@ -1798,6 +1798,7 @@
     (match message
       ['upgrade ;; Happens every time site.rkt is reloaded
        (internal:rerender-not-found!)
+       (rerender-index-and-flush!)
        (package-change-handler packages-to-render-before-issuing-completions
                                pending-completions
                                packages-to-render-in-idle-moments)]

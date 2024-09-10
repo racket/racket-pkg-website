@@ -100,7 +100,7 @@ Keys useful for deployment:
    variable, if defined; otherwise, 7443.
  - *pkg-index-port*: number; defaults to the value of the `SITE_PKG_INDEX_PORT`
    environment variable, if defined; otherwise, 9004.
- - *ssl?*: boolean; default is `#t`.
+ - *ssl?*: boolean; default is `#t`, unless `PKG_SERVER_HTTP` is defined.
  - *reloadable?*: boolean; default is `#t` if the `SITE_RELOADABLE` environment
    variable is defined; otherwise, `#f`.
  - *recent-seconds*: number, in seconds; default is 172800. Packages
