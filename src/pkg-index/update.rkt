@@ -8,7 +8,8 @@
          (prefix-in pkg: pkg/lib)
          "common.rkt"
          "notify.rkt"
-         "static.rkt")
+         "static.rkt"
+         "../readme.rkt")
 
 (define (update-all)
   (update-checksums #f (package-list)))
@@ -99,6 +100,11 @@
                        old-checksum)))
        (define* i
          (hash-set i 'last-checked now))
+       (define* i
+         (if (and (equal? new-checksum old-checksum)
+                  (hash-has-key? i 'readme-url))
+             i
+             (hash-set i 'readme-url (source->readme-url (package-ref i 'source)))))
        (define* i
          (hash-update i 'versions
                       (λ (v-ht)
