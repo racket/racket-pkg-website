@@ -153,7 +153,7 @@
                        "-a"
                        "--delete"
                        (path->string (build-path static-generated-directory "."))
-                       (path->string (build-path (config-path "../static") ".")))
+                       (path->string (build-path (config-path source-static-content-dir) ".")))
                  (list (path->string (build-path pkg-index-generated-directory ".")))
                  (list (path->string (build-path static-content-target-directory ".")))))
        (log-info "Executing rsync to replicate static content; argv: ~v" command)
@@ -269,7 +269,7 @@
           [('delete-file! absolute-path)
            (values (void) (aws-delete-file! index absolute-path))]
           [('finish-update!)
-           (let* ((index (upload-directory! index (build-path (config-path "../static") ".") "/"))
+           (let* ((index (upload-directory! index (build-path (config-path source-static-content-dir) ".") "/"))
                   (index (upload-directory! index
                                             (build-path pkg-index-generated-directory "pkg")
                                             "/pkg/")))

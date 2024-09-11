@@ -12,6 +12,7 @@
             'var-path var
             'backend-baseurl (format "https://localhost:~a" pkg-index-port)
             'pkg-index-generated-directory (build-path var "public_html/pkg-index-static")
+            'static-generated-directory (build-path var "generated-htdocs")
             'user-directory (build-path var "pkg-index/users.new")
             'email-sender-address "The Racket Package Server <pkgs@racket-lang.org>"
             'beat-s3-bucket "heartbeat.racket-lang.org"
