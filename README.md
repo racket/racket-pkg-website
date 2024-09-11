@@ -51,7 +51,8 @@ the most sense in terms of the main deployment's structure:
 
 ## Prerequisites
 
-You will need to install the following Racket packages:
+In addition to Racket v8.14.0.3 or later, you will need to install the
+following Racket packages:
 
     raco pkg install --skip-installed \
          'https://github.com/racket/infrastructure-userdb.git#main' \

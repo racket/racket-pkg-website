@@ -21,18 +21,22 @@
 (define non-force-wait-seconds (* 1 60 60))
 
 (define (update-checksums force? pkgs)
-  (filter (λ (pkg-name)
-            (cond
-              [(package-exists? pkg-name)
-               (update-checksum force? pkg-name)]
-              [else (log! "update-checksums: invariant broken; ~a doesn't exist" pkg-name)
-                    ;; considered not update
-                    #f]))
-          pkgs))
+  (define cache (make-hash))
+  (define len (length pkgs))
+  (for/list ([pkg-name (in-list pkgs)]
+             [i (in-naturals 1)]
+             #:when
+             (cond
+               [(package-exists? pkg-name)
+                (update-checksum force? pkg-name cache i len)]
+               [else (log! "update-checksums: invariant broken; ~a doesn't exist" pkg-name)
+                     ;; considered not update
+                     #f]))
+    pkg-name))
 
 ;; precondition: pkg-name must exist
-(define (update-checksum force? pkg-name)
-  (log! "update-checksum ~v ~v" force? pkg-name)
+(define (update-checksum force? pkg-name cache i len)
+  (log! "update-checksum ~v ~v (~a of ~a)" force? pkg-name i len)
   (with-handlers
       ([exn:fail?
         (λ (x)
@@ -88,7 +92,9 @@
       (define new-checksum
         (package-url->checksum
          (package-ref i 'source)
-         #:pkg-name pkg-name))
+         #:pkg-name pkg-name
+         #:cache cache
+         #:download-printf log!/no-newline))
       (unless (equal? new-checksum old-checksum)
         (log! "\told: ~v" old-checksum)
         (log! "\tnew: ~v" new-checksum)
@@ -113,7 +119,9 @@
                           (define new-checksum
                             (package-url->checksum
                              (hash-ref vi 'source "")
-                             #:pkg-name pkg-name))
+                             #:pkg-name pkg-name
+                             #:cache cache
+                             #:download-printf log!/no-newline))
                           (unless (equal? new-checksum old-checksum)
                             (log! "\t~a old: ~v" vi old-checksum)
                             (log! "\t~a new: ~v" vi new-checksum)
@@ -183,6 +191,7 @@
 
 (define (do-update! pkgs)
   (notify! "package sources being checked for updates")
+  (define start-seconds (current-seconds))
   (log! "update: checking ~v" pkgs)
   (define changed
     (cond
@@ -193,6 +202,7 @@
      [else
       (update-pkgs pkgs)]))
   (log! "update: changes ~v" changed)
+  (log! "update: took ~a seconds" (- (current-seconds) start-seconds))
   (signal-static! changed))
 (define (run-update! pkgs beat?)
   (run! do-update! pkgs)

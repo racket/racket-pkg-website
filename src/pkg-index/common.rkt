@@ -139,11 +139,18 @@
 (define valid-tag?
   valid-name?)
 
-(define (log! . args)
+(define (log!* args suffix)
   (parameterize ([date-display-format 'iso-8601])
-    (printf "~a: ~a\n" (date->string (current-date) #t)
-            (apply format args))
+    (printf "~a: ~a~a" (date->string (current-date) #t)
+            (apply format args)
+            suffix)
     (flush-output)))
+
+(define (log! . args)
+  (log!* args "\n"))
+
+(define (log!/no-newline . args)
+  (log!* args ""))
 
 (define (run! f args)
   (log! "START ~a ~v" f args)
