@@ -12,8 +12,15 @@
 
 (define (upload-all)
   (log! "upload: doing gzip")
-  (gzip (format "~a/pkgs-all.json" static-path)
-        (format "~a/pkgs-all.json.gz" static-path))
+
+  ;; Atomic update of a file that may be polled directly by the frontend
+  (define (gzip/atomic src dest)
+    (define tmp (format "~a.tmp" dest))
+    (gzip src tmp)
+    (rename-file-or-directory tmp dest #t))
+
+  (gzip/atomic (format "~a/pkgs-all.json" static-path)
+               (format "~a/pkgs-all.json.gz" static-path))
 
   (delete-file (format "~a/pkgs-all.json" static-path))
 

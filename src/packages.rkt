@@ -139,9 +139,10 @@
       (if new-local-pkg
           (hash-set acc package-name new-local-pkg)
           acc)))
-  (rebuild-indexes (struct-copy package-manager-state state
-                                [local-packages new-local-packages]))
-  (heartbeat beat-publish-task-name))
+  (begin0
+    (rebuild-indexes (struct-copy package-manager-state state
+                                  [local-packages new-local-packages]))
+    (heartbeat beat-publish-task-name)))
 
 (define (rebuild-indexes state)
   (struct-copy package-manager-state state
