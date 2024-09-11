@@ -7,8 +7,9 @@
 (require reloadable)
 (require "entrypoint.rkt")
 (require "default.rkt")
-(require (prefix-in pkg-index: "pkg-index/config.rkt")
-         (prefix-in pkg-index: "pkg-index/dynamic.rkt"))
+
+(define-runtime-module-path-index pkg-index/config.rkt "pkg-index/config.rkt")
+(define-runtime-module-path-index pkg-index/dynamic.rkt "pkg-index/dynamic.rkt")
 
 (define-runtime-module-path-index packages.rkt "packages.rkt")
 (define-runtime-module-path-index debug.rkt "debug.rkt")
@@ -32,8 +33,8 @@
 
   ;; start the pkg-index back end
   (when (hash-ref config 'pkg-index (hash))
-    (pkg-index:config (extract-pkg-index-config config))
-    (thread pkg-index:go))
+    ((dynamic-require pkg-index/config.rkt 'config) (extract-pkg-index-config config))
+    (thread (dynamic-require pkg-index/dynamic.rkt 'go)))
 
   ;; start the web front end
   (make-persistent-state '*config* (lambda () config))
