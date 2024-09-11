@@ -41,7 +41,8 @@
         [root (hash-ref config 'root default-root)]
         [port (hash-ref config 'pkg-index-port default-pkg-index-port)]
         [ssl? (hash-ref config 'ssl? default-ssl?)]
-        [static-path (hash-ref config 'pkg-index-generated-directory default-static-gen)])
+        [static-path (hash-ref config 'pkg-index-generated-directory default-static-gen)]
+        [beat-s3-bucket (hash-ref config 'beat-s3-bucket #f)])
     (define (hash-default pi-config key val)
       (if (hash-ref pi-config key #f)
           pi-config
@@ -51,5 +52,6 @@
                                     (hash-ref config 'user-directory (default-users root)))]
            [pi-config (hash-default pi-config 'port port)]
            [pi-config (hash-default pi-config 'ssl? ssl?)]
-           [pi-config (hash-default pi-config 'static-path static-path)])
+           [pi-config (hash-default pi-config 'static-path static-path)]
+           [pi-config (hash-default pi-config 'beat-s3-bucket beat-s3-bucket)])
       pi-config)))

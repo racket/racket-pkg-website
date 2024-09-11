@@ -15,4 +15,5 @@
     ((dynamic-require main-inner 'main) config)))
 
 (module+ main
-  (main))
+  (require "command-line.rkt")
+  (handle-command-line main))

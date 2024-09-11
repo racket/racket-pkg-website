@@ -31,4 +31,4 @@ PLTSTDERR="
         "
 export PLTSTDERR
 echo '============================================='
-exec ${RACKET}racket ${srcdir}/configs/${CONFIG}.rkt 2>&1
+exec ${RACKET}racket ${srcdir}/configs/${CONFIG}.rkt ${1+"$@"} 2>&1

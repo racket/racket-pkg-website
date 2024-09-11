@@ -7,4 +7,5 @@
   (inner:main (hash-set config 'pkg-index #f)))
 
 (module+ main
-  (main))
+  (require "../command-line.rkt")
+  (handle-command-line main))

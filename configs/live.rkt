@@ -14,7 +14,8 @@
             'pkg-index-generated-directory (build-path var "public_html/pkg-index-static")
             'user-directory (build-path var "pkg-index/users.new")
             'email-sender-address "The Racket Package Server <pkgs@racket-lang.org>"
-
+            'beat-s3-bucket "heartbeat.racket-lang.org"
+            
             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             ;; To configure a split, S3-based setup, comment out the following lines:
             ;;
@@ -49,7 +50,5 @@
                         ;; S3 bucket is disabled, because no one is reading pkgo.racket-lang.org;
                         ;; communication to the front end goes through the filesystem
                         's3-bucket #f
-                        's3-bucket-region #f
-
-                        'beat-s3-bucket "heartbeat.racket-lang.org")
+                        's3-bucket-region #f)
             ))

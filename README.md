@@ -93,7 +93,9 @@ configuration). For example, to select `configs/live.rkt`, set
 file; see the description of `run-prelude` below.
 
 Within a configuration file, configuration details are to be given as
-a hashtable to `main`.
+a hashtable to `main`. Whenusing the testing configuration of `./run`
+or when using `racket src/main.rkt`, you can supply a `--config`
+argument to specify a module that exports a `config` hashtable.
 
 Keys useful for deployment:
 
@@ -133,6 +135,11 @@ Keys useful for deployment:
  - *email-sender-address*: string; defaults to `pkgs@racket-lang.org`.
    Used as the "from" address when sending authentication emails on
    behalf of the server.
+ - *beat-s3-bucket*: string or #f; defaults to #f a bucket name for
+   regsitering heartbeats, or `#f` to disable heartbeats; the
+   region is determined automatically from the bucket name. 
+ - *beat-publish-task-name*: string; defaults to "pkgd-publish"; a task
+   name for heartbeats after publish information for all packages.
 
 Keys useful for development:
 
@@ -209,7 +216,8 @@ configuration:
  - *s3-bucket-region* - string; defaults to the contents of the
     environment variable `S3_BUCKET_REGION`, if it is defined;
     otherwise, to `#f`; needs to be non-`#f` if *s3-bucket* is.
- - *beat-s3-bucket*: string or #f; defaults to #f a bucket name for
+ - *beat-s3-bucket*: string or #f; defaults to *beat-s3-bucket* from the
+   enclosing configuration table or #f; a bucket name for
    regsitering heartbeats, or `#f` to disable heartbeats; the
    region is determined automatically from the bucket name. 
  - *beat-update-task-name*: string; defaults to "pkgd-update"; a task

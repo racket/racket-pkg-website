@@ -32,6 +32,7 @@
 (require "rpc.rkt")
 (require "hash-utils.rkt")
 (require "default.rkt")
+(require "heartbeat.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -47,6 +48,10 @@
   (* (or (@ (config) package-fetch-interval)
          300) ;; 300 seconds = 5 minutes
      1000)) ;; convert to milliseconds
+
+(define beat-publish-task-name
+  (or (@ (config) beat-publish-task-name)
+      "pkgd-publish"))
 
 (define base-bogus-timeout (* 5 1000)) ;; 5 seconds
 
@@ -135,7 +140,8 @@
           (hash-set acc package-name new-local-pkg)
           acc)))
   (rebuild-indexes (struct-copy package-manager-state state
-                                [local-packages new-local-packages])))
+                                [local-packages new-local-packages]))
+  (heartbeat beat-publish-task-name))
 
 (define (rebuild-indexes state)
   (struct-copy package-manager-state state

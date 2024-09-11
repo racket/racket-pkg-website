@@ -1,6 +1,7 @@
 #lang racket/base
 ;; Configuration for development setup.
-(require "../src/main.rkt")
+(require "../src/main.rkt"
+         "../src/command-line.rkt")
 
 ;; All defaults should be suitable for testing
-(main (hash))
+(handle-command-line main)
