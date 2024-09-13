@@ -26,6 +26,7 @@
                      #:quit? #f
                      #:listen-ip #f
                      #:port port
+                     #:log-file (current-output-port)
                      #:manager (make-threshold-LRU-manager
                                 on-continuation-expiry
                                 ;; The production service averages 200 - 350 MiB.

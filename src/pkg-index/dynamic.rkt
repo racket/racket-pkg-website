@@ -439,7 +439,8 @@
    #:ssl-key (and ssl? (build-path root "private-key.pem"))
    #:extra-files-paths empty
    #:servlet-regexp #rx""
-   #:port port))
+   #:port port
+   #:log-file (current-output-port)))
 
 (module+ main
   (go))
