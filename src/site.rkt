@@ -90,7 +90,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define-values (request-handler relative-named-url)
+(define-values (raw-request-handler relative-named-url)
   (dispatch-rules
    [("") main-page]
    [("search") search-page]
@@ -110,6 +110,11 @@
    [("ping") ping-page]
    [("bulk-operation") #:method "post" bulk-operation-page]
    ))
+
+(define (request-handler req)
+  (define h (headers-assq #"X-Forwarded-For" (request-headers/raw req)))
+  (when h (log-error "request from ~s" (header-value h)))
+  (raw-request-handler req))
 
 (define (on-continuation-expiry request)
   (log-warning "Tried to use expired continuation for ~a, current memory use: ~a"
