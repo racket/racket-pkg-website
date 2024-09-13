@@ -766,7 +766,8 @@
           (td (span ((class "last-updated-negated") (style "display: none"))
                     ,(~a (- (package-last-updated pkg))))
               ,@(maybe-splice
-                 (< (- now (package-last-updated pkg)) recent-seconds)
+                 (and (not (package-checksum-error pkg))
+                      (< (- now (package-last-updated pkg)) recent-seconds))
                  (label-p "label-info" "New"))
               ,@(maybe-splice
                  (> 0 todokey)
