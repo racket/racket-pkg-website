@@ -647,9 +647,9 @@
       "N/A"))
 
 (define (get-implied-docs pkg)
-  (define implied-names (filter-map
-                         (lambda (p) (and (string? p) (string->symbol p)))
-                         (package-implies pkg)))
+  (define implied-names (map string->symbol
+                             (dependencies->package-names
+                              (package-implies pkg))))
   (append-map package-docs (package-batch-detail implied-names)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
