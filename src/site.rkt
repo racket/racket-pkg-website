@@ -41,6 +41,7 @@
 (require "users.rkt")
 (require "display-name.rkt")
 (require "default.rkt")
+(require "version.rkt")
 
 (define static-urlprefix
   (or (@ (config) static-urlprefix)
@@ -1174,8 +1175,8 @@
                                        (tr (th "Version")
                                            (th "Source")
                                            (th "Checksum"))
-                                       ,@(for/list
-                                             (((version-sym v) (in-hash vs)))
+                                       ,@(for/list ((version-sym (in-list (sort-version-symbols (hash-keys vs)))))
+                                           (define v (hash-ref vs version-sym)) 
                                            `(tr
                                              (td ,(~a version-sym))
                                              (td (a ((href ,(package-source->human-tree-url
