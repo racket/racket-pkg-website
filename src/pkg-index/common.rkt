@@ -119,8 +119,10 @@
                  -inf.0]))))
 
 (define (package-info-set! pkg-name i)
-  (write-to-file i (build-path^ pkgs-path pkg-name)
-                 #:exists 'replace))
+  (call-with-atomic-output-file
+   (build-path^ pkgs-path pkg-name)
+   (lambda (out)
+     (write i out))))
 
 (define (hash-merge from to)
   (for/fold ([to to])
