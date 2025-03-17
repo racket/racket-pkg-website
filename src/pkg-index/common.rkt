@@ -121,7 +121,7 @@
 (define (package-info-set! pkg-name i)
   (call-with-atomic-output-file
    (build-path^ pkgs-path pkg-name)
-   (lambda (out)
+   (lambda (out path)
      (write i out))))
 
 (define (hash-merge from to)
