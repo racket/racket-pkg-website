@@ -10,12 +10,14 @@ $(document).ready(function () {
     $("table.packages > tbody > tr").each(function() {
       const row = $(this);
       const packageName = row.find("td:nth-child(2) h2 a").text().toLowerCase();
+      const authors = row.find("td:nth-child(2) .authors").text().toLowerCase();
       const description = row.find("td:nth-child(3) p:first-child").text().toLowerCase();
       const tags = row.find(".taglinks").text().toLowerCase();
       
-      // Show row if the search text is found in the package name, description or tags
+      // Show row if the search text is found in the package name, author, description or tags
       if (searchText === "" || 
           packageName.includes(searchText) || 
+          authors.includes(searchText) ||
           description.includes(searchText) || 
           tags.includes(searchText)) {
         row.show();
