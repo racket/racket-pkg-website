@@ -45,15 +45,14 @@ PkgSite = (function () {
 $(document).ready(function () {
   $("table.sortable").tablesorter();
 
-  if ($("#tags").length) {
-    PkgSite.dynamicJSON((document.body.className === "package-form")
-			? "formal-tags"
-			: "tag-search-completions",
-			function (completions) {
-			  completions.sort();
-			  PkgSite.multiTermComplete(
-			    PkgSite.preventTabMovingDuringSelection($("#tags")),
-			    completions);
-			});
+  // Only apply autocomplete to the tags field in package edit form, not search fields
+  if ($("#tags").length && document.body.className === "package-form") {
+    PkgSite.dynamicJSON("formal-tags",
+      function (completions) {
+        completions.sort();
+        PkgSite.multiTermComplete(
+          PkgSite.preventTabMovingDuringSelection($("#tags")),
+          completions);
+      });
   }
 });
