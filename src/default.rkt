@@ -10,6 +10,11 @@
          default-htdocs-gen
          default-s3-mock
          default-users
+         default-email-transport
+         default-smtp-server
+         default-smtp-port
+         default-smtp-sending-server
+         default-smtp-user+password-file
          extract-pkg-index-config)
 
 (define default-port (or (let ((port-str (getenv "SITE_PORT")))
@@ -33,6 +38,12 @@
 (define default-s3-mock (generated "mock/aws-s3"))
 
 (define (default-users root) (build-path root "users.new"))
+
+(define default-email-transport 'smtp)
+(define default-smtp-server "smtp-relay.gmail.com")
+(define default-smtp-port 465)  
+(define default-smtp-sending-server "racket-lang.org")
+(define default-smtp-user+password-file (build-path (find-system-path 'home-dir) ".email_key"))
 
 ;; extract 'pkg-index config table, propagating some keys from the
 ;; enclosing table to other keys in the extracted table

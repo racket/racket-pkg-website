@@ -6,12 +6,12 @@
          registration-code-correct?
          register-or-update-user!)
 
-(require net/sendmail)
 (require reloadable)
 (require infrastructure-userdb)
 (require "config.rkt")
 (require "hash-utils.rkt")
 (require "default.rkt")
+(require "send-email.rkt")
 
 (define-logger racket-pkg-website/users)
 
@@ -42,12 +42,10 @@
 
 (define (send-password-reset-email! email)
   (log-racket-pkg-website/users-info "Sending password reset email to ~v" email)
-  (send-mail-message
+  (send-email
    (sender-address)
    "Account password reset for Racket Package Catalog"
    (list email)
-   '()
-   '()
    (list
     "Someone tried to login with your email address for an account on the Racket Package Catalog, but failed."
     "If this was you, please use this code to reset your password:"
@@ -58,12 +56,10 @@
 
 (define (send-account-registration-email! email)
   (log-racket-pkg-website/users-info "Sending account registration email to ~v" email)
-  (send-mail-message
+  (send-email
    (sender-address)
    "Account confirmation for Racket Package Catalog"
    (list email)
-   '()
-   '()
    (list
     "Someone tried to register your email address for an account on the Racket Package Catalog."
     "If you want to proceed, use this code:"

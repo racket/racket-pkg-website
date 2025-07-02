@@ -137,6 +137,12 @@ Keys useful for deployment:
  - *email-sender-address*: string; defaults to `pkgs@racket-lang.org`.
    Used as the "from" address when sending authentication emails on
    behalf of the server.
+ - *email-transport*: `'smtp` or `'sendmail`.
+ - *stmp-server*, *stmp-port*, *stmp-sending-server*, *smtp-user+password-file*:
+   SMTP relay configuration for authentication emails, defaults to
+   "smtp-relay.gmail.com", 465, "racket-lang.org", and "~/.email\_key",
+   where "~/.email\_key" normally has the user "email@plt-scheme.org"
+   and an app-specific password for that account.
  - *beat-s3-bucket*: string or #f; defaults to #f a bucket name for
    regsitering heartbeats, or `#f` to disable heartbeats; the
    region is determined automatically from the bucket name. 
@@ -160,7 +166,7 @@ Keys useful for development:
    frontend to always redirect to itself to serve the package dynamically,
    instead of redirecting to generated static files.
  - *backend-baseurl*: string; defaults to a `https://localhost:`
-   followed by *pkg-index-port*`; must point to the backend package
+   followed by *pkg-index-port*; must point to the backend package
    server API root, such that (for example) `/jsonp/authenticate`,
    when appended to it, resolves to the authentication call.   
  - *pkg-build-baseurl*: string; defaults to
@@ -281,8 +287,9 @@ fastest way to warm up the frontend.
 ### Adding users
 
 You can use the website frontend to add a user. Email for a new user
-is sent via `sendmail`, so if you don't have that configured, just
-watch the logs to see the token that would have been sent.
+is sent via sendmail or an SMTP relay, so if you don't have that
+configured, just watch the logs to see the token that would have been
+sent.
 
 ### Automatic code reloading
 
