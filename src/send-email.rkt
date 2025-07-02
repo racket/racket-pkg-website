@@ -29,6 +29,8 @@
                                     default-smtp-user+password-file))
      (define-values (user password)
        (call-with-input-file user+password-file (lambda (i) (values (read i) (read i)))))
+     (define (extract-address email)
+       (car (extract-addresses email 'address)))
      (parameterize ([smtp-sending-server sending-server])
        (smtp-send-message server
                           #:port-no port-no
@@ -36,8 +38,8 @@
                                           (ssl-connect host port 'secure))
                           #:auth-user user
                           #:auth-passwd password
-                          from-email
-                          to-emails
+                          (extract-address from-email)
+                          (map extract-address to-emails)
                           (standard-message-header from-email
                                                    to-emails
                                                    null
