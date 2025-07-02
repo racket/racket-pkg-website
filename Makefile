@@ -13,7 +13,7 @@ stop-service:
 	sudo svc -d /etc/service/$$(basename $$(pwd))
 
 compile:
-	raco make src/main.rkt src/site.rkt
+	raco make src/main.rkt src/site.rkt src/backup/main.rkt
 
 clean:
 	find . -depth -type d -iname compiled -exec rm -rf {} \;

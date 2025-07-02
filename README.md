@@ -1,6 +1,6 @@
 # The Racket Package Catalog Server
 
-The Racket Package Catalog comprises two pieces of software that work
+The Racket Package Catalog comprises three pieces of software that work
 in tandem:
 
  - **pkg-index**, a.k.a. the **backend**: responsible for managing the
@@ -21,7 +21,8 @@ and internal tasks. The frontend sends package-change requests to the
 backend, and it watches for periodic updates (especially new
 checksums) from the pkg-index backend. The servers were originally
 implemented separately, and there is some value to keeping them
-conceptually separate.
+conceptually separate. There's also a backup thread that periodically
+uploads package and user information to an S3 bucket.
 
 Although the implementation here is not necessarily tied to the main
 Racket deployment's configuation, various configuration options make
@@ -51,7 +52,7 @@ the most sense in terms of the main deployment's structure:
 
 ## Prerequisites
 
-In addition to Racket v8.14.0.3 or later, you will need to install the
+In addition to Racket v8.17 or later, you will need to install the
 following Racket packages:
 
     raco pkg install --skip-installed \
@@ -174,7 +175,10 @@ Keys useful for development:
    the package build host, such as for documentation links and build
    reports.
  - *pkg-index*: `#f` or hash table; use `#f` to disable the backend
-   server entirely, or provide a hash table to condigure the backend
+   server entirely, or provide a hash table to configure the backend
+   specifically.
+ - *backup*: `#f` or hash table; use `#f` to disable the backup
+   task entirely, or provide a hash table to configure the backup
    specifically.
 
 Backend keys for a *pkg-index* configuration table within the main
@@ -254,6 +258,15 @@ configuration:
    package name and a format template-string from
    `atom-package-url-format-string`, which in turn defaults to
    `http://pkg.racket-lang.org/#[~a]`.
+
+Backend keys for a *backup* configuration table within the main
+configuration:
+
+ - *s3-bucket*: string or #f; defaults to #f a bucket name for
+   uploads, or `#f` to disable backup uploads; the
+   region is determined automatically from the bucket name.
+ - *beat-backup-task-name*: string; defaults to "pkgd-backup"; a task
+   name for heartbeats after uploading backup data.
 
 ## Development Setup
 

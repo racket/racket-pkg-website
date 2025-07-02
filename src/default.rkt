@@ -15,7 +15,9 @@
          default-smtp-port
          default-smtp-sending-server
          default-smtp-user+password-file
-         extract-pkg-index-config)
+         default-backup-seconds
+         extract-pkg-index-config
+         extract-backup-config)
 
 (define default-port (or (let ((port-str (getenv "SITE_PORT")))
                            (and port-str (string->number port-str)))
@@ -45,6 +47,8 @@
 (define default-smtp-sending-server "racket-lang.org")
 (define default-smtp-user+password-file (build-path (find-system-path 'home-dir) ".email_key"))
 
+(define default-backup-seconds (* 60 60 24 3)) ; 3 days
+
 ;; extract 'pkg-index config table, propagating some keys from the
 ;; enclosing table to other keys in the extracted table
 (define (extract-pkg-index-config config)
@@ -66,3 +70,16 @@
            [pi-config (hash-default pi-config 'static-path static-path)]
            [pi-config (hash-default pi-config 'beat-s3-bucket beat-s3-bucket)])
       pi-config)))
+
+;; extract 'backup config table, propagating some keys
+(define (extract-backup-config config)
+  (let ([bu-config (hash-ref config 'backup (hash))]
+        [root (hash-ref config 'root default-root)]
+        [beat-s3-bucket (hash-ref config 'beat-s3-bucket #f)])
+    (define (hash-default bu-config key val)
+      (if (hash-ref bu-config key #f)
+          bu-config
+          (hash-set bu-config key val)))
+    (let* ([bu-config (hash-default bu-config 'root root)]
+           [bu-config (hash-default bu-config 'beat-s3-bucket beat-s3-bucket)])
+      bu-config)))

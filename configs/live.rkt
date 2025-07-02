@@ -52,4 +52,7 @@
                         ;; communication to the front end goes through the filesystem
                         's3-bucket #f
                         's3-bucket-region #f)
+
+            'backup (hash
+                     's3-bucket "pkg-backup.racket-lang.org")
             ))

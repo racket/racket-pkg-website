@@ -10,6 +10,7 @@
 
 (define-runtime-module-path-index pkg-index/config.rkt "pkg-index/config.rkt")
 (define-runtime-module-path-index pkg-index/dynamic.rkt "pkg-index/dynamic.rkt")
+(define-runtime-module-path-index backup/main.rkt "backup/main.rkt")
 
 (define-runtime-module-path-index packages.rkt "packages.rkt")
 (define-runtime-module-path-index debug.rkt "debug.rkt")
@@ -30,6 +31,12 @@
           (error 'pkg-website "server will not work without ~a" p))) 
       (check "server-cert.pem")
       (check "private-key.pem")))
+
+  ;; start a  peridoic backup task
+  (when (hash-ref config 'backup (hash))
+    (define go (dynamic-require backup/main.rkt 'go))
+    (define bu-config (extract-backup-config config))
+    (thread (lambda () (go bu-config))))
 
   ;; start the pkg-index back end
   (when (hash-ref config 'pkg-index (hash))
