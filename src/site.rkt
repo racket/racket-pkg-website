@@ -902,9 +902,7 @@
              ,(package-summary-table package-name-list))
            `(div ((class "jumbotron"))
                  (p "Questions? Comments? Bugs? Email "
-                    (a ((href "mailto:tonyg@ccs.neu.edu")) "tonyg@ccs.neu.edu")
-                    " or "
-                    (a ((href "mailto:jay.mccarthy@gmail.com")) "jay.mccarthy@gmail.com")
+                    (a ((href "mailto:pkgs-admins@racket-lang.org")) "pkgs-admins@racket-lang.org")
                     ".")))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
