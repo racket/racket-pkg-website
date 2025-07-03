@@ -5,7 +5,6 @@
          file/zip
          s3-sync
          plt-service-monitor/beat
-         "../config.rkt"
          "../default.rkt"
          "../hash-utils.rkt")
 
@@ -18,7 +17,7 @@
 
 (define-runtime-path main.rkt "main.rkt")
 
-(define (go [config (config)])
+(define (go config)
   (define root (or (@ config root) default-root))
   (define backup-stamp (build-path root "backup-stamp"))
   (define s3-bucket (@ config s3-bucket))
