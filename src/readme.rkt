@@ -2,6 +2,7 @@
 (require racket/match
          racket/list
          net/url
+         pkg/private/timeout
          (only-in racket/exn exn->string)
          "package-source.rkt"
          "http-utils.rkt")
@@ -27,7 +28,9 @@
                         s
                         (exn->string e))
                        #f)])
-      body ...))
+      (call-in-timeout-sandbox
+       (lambda ()
+         body ...))))
 
   ;; URL -> (Option String)
   ;; Helper: Check for a "README.md" resource as a subresource of the
