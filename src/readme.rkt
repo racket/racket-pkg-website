@@ -2,7 +2,7 @@
 (require racket/match
          racket/list
          net/url
-         pkg/private/timeout
+         pkg/lib
          (only-in racket/exn exn->string)
          "package-source.rkt"
          "http-utils.rkt")
@@ -28,7 +28,8 @@
                         s
                         (exn->string e))
                        #f)])
-      (call-in-timeout-sandbox
+      (call-in-pkg-timeout-sandbox
+       #:make-exn exn:fail:network
        (lambda ()
          body ...))))
 
