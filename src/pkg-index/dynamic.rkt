@@ -67,7 +67,8 @@
               "mflatt@cs.utah.edu"
               "samth@ccs.neu.edu"
               "stamourv@racket-lang.org"
-              "tonygarnockjones@gmail.com")))
+              "tonygarnockjones@gmail.com"
+              "clements@racket-lang.org")))
 
 ;; This predicate means "Can `u` edit or delete arbitrary packages?"
 ;; For now, it's the same set of people as can curate packages, but we
