@@ -1036,10 +1036,12 @@
                             `()]
                            [(list doc)
                             (define-values (n u) (doc-destruct doc))
-                            (list (buildhost-link
-                                   #:attributes `((class "btn btn-success btn-lg"))
-                                   u
-                                   `(span ,(glyphicon 'file) " Documentation")))]
+                            (if u
+                                (list (buildhost-link
+                                       #:attributes `((class "btn btn-success btn-lg"))
+                                       u
+                                       `(span ,(glyphicon 'file) " Documentation")))
+                                '())]
                            [_
                             `((button ((class "btn btn-success btn-lg dropdown-toggle")
                                        (data-toggle "dropdown"))
