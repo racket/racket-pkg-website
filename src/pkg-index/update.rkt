@@ -159,7 +159,8 @@
 (define (update-from-content i)
   (log! "\tgetting package content for ~v" (hash-ref i 'name))
   (match-define-values
-   (checksum module-paths (list deps rt-deps license implies collection))
+   (checksum module-paths (list deps rt-deps license implies collection
+                                umbrella language-families build-platforms))
    (pkg:get-pkg-content
     (pkg:pkg-desc (hash-ref i 'source)
                   #f
@@ -173,8 +174,13 @@
               (pkg:extract-pkg-dependencies get-info #:build-deps? #f)
               (get-info 'license (λ () missing))
               (get-info 'implies (λ () empty))
-              (get-info 'collection (λ () #f)))
+              (get-info 'collection (λ () #f))
+              (get-info 'umbrella (λ () #f))
+              (get-info 'language-families (λ () #f))
+              (get-info 'build-platforms (λ () #f)))
         (list empty empty missing empty #f)))))
+
+  (define (guard v pred alt-v) (if (pred v) v alt-v))
 
   (package-begin
    (define* i (hash-set i 'modules module-paths))
@@ -184,9 +190,25 @@
                         (cond
                           [(eq? license missing) #f]
                           [else (format "~s" license)])))
-   (define* i (hash-set i 'implies implies))
+   (define* i (hash-set i 'implies (guard implies
+                                          (lambda (v) (or (string? v) (eq? v 'core)))
+                                          empty)))
    ;; avoid conflation of symbols and strings in JSON
    (define* i (hash-set i 'collection (if (eq? collection 'multi) (list 'multi) collection)))
+   (define* i (hash-set i 'umbrella (guard umbrella
+                                           string?
+                                           #f)))
+   (define* i (hash-set i 'language-families (guard language-families
+                                                    (lambda (l) (and (list? l)
+                                                                     (andmap string? l)))
+                                                    '("Racket"))))
+   (define* i (hash-set i 'build-platforms (guard build-platforms
+                                                  (lambda (l)
+                                                    (or (not l)
+                                                        (and (list? l)
+                                                             (andmap (lambda (i) (or (string? i) (symbol? i)))
+                                                                     l))))
+                                                  #f)))
    i))
 
 (define (do-update! pkgs)
