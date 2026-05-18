@@ -57,4 +57,33 @@ $(function() {
     $("#todo-msg").hide();
   }
 
+  document.querySelectorAll('.umbrella-arrow').forEach(arrow => {
+    arrow.addEventListener('click', () => {
+      const isOpening = arrow.classList.contains("umbrella-closed");
+
+      if (isOpening) {
+        arrow.classList.remove('umbrella-closed');
+        arrow.classList.add('umbrella-open');
+        document.querySelectorAll('.umbrella-content').forEach(
+          function (c) {
+            if (c.dataset.umbrella == arrow.dataset.umbrella) {
+              c.classList.remove('in-closed-umbrella')
+              c.classList.add('in-open-umbrella')
+            }
+          }
+        );
+      } else {
+        arrow.classList.remove('umbrella-open');
+        arrow.classList.add('umbrella-closed');
+        document.querySelectorAll('.umbrella-content').forEach(
+          function (c) {
+            if (c.dataset.umbrella == arrow.dataset.umbrella) {
+              c.classList.remove('in-open-umbrella')
+              c.classList.add('in-closed-umbrella')
+            }
+          }
+        );
+      }
+    });
+  });
 }); /* document.ready */
