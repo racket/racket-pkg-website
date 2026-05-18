@@ -24,6 +24,7 @@
 
 (require racket/match)
 (require racket/string)
+(require racket/runtime-path)
 (require web-server/servlet)
 (require "html-utils.rkt")
 (require "xexpr-utils.rkt")
@@ -42,8 +43,24 @@
 (define bootstrap-inline-js (make-parameter #f))
 (define bootstrap-head-extra (make-parameter '()))
 
+(define-runtime-path static-content-dir "../static")
+
+;; Append a cache-busting query string derived from the asset's
+;; modification time, so browsers (Firefox in particular, which
+;; caches more aggressively when no explicit Cache-Control is sent)
+;; refetch when the file changes instead of serving a stale copy.
+(define (cache-busting-suffix str)
+  (define rel (regexp-replace #rx"^/" str ""))
+  (define path
+    (and (not (string=? rel ""))
+         (with-handlers ([exn:fail? (lambda (_) #f)])
+           (apply build-path static-content-dir (regexp-split #rx"/" rel)))))
+  (if (and path (file-exists? path))
+      (format "?v=~a" (file-or-directory-modify-seconds path))
+      ""))
+
 (define (static str)
-  (string-append (bootstrap-static-urlprefix) str))
+  (string-append (bootstrap-static-urlprefix) str (cache-busting-suffix str)))
 (define (dynamic str)
   (string-append (bootstrap-dynamic-urlprefix) str))
 

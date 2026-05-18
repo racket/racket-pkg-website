@@ -166,3 +166,33 @@ th.headerSortDown::after { content: " ▲"; }
     display: inline-block;
     padding: 0 0.15em;
 }
+
+.umbrella-arrow {
+    display: inline-block;
+    position: relative;
+    left: -2em;
+    width: 0;
+}
+
+.umbrella-closed::after {
+    content: "▶";
+}
+
+.umbrella-open::after {
+    content: "▼";
+}
+
+.umbrella-content {
+}
+
+.umbrella-content .package-left {
+    transform: translateX(1em);
+    border-top: 0;
+}
+
+.in-closed-umbrella {
+    display: none;
+}
+
+.in-open-umbrella {
+}

@@ -647,11 +647,64 @@
       (string-append (date->string (seconds->date utc #f) #t) " (UTC)")
       "N/A"))
 
-(define (get-implied-docs pkg)
-  (define implied-names (map string->symbol
-                             (dependencies->package-names
-                              (package-implies pkg))))
-  (append-map package-docs (package-batch-detail implied-names)))
+(define (get-all-pkg-docs pkg inferred-umbrellas)
+  (define-values (docs seen)
+    (let loop ([pkgs (list pkg)] [docs null] [seen #hash()])
+      (cond
+        [(null? pkgs) (values (set->list (list->set docs))
+                              seen)]
+        [(hash-ref seen (package-name (car pkgs)) #f)
+         (loop (cdr pkgs) docs seen)]
+        [else
+         (define pkg (car pkgs))
+         (let ([docs (append (package-docs pkg) docs)]
+               [seen (hash-set seen (package-name pkg) #t)])
+           (define implied-names (dependencies->package-names
+                                  (package-implies pkg)))
+           (define umbrella-name (or (package-umbrella pkg)
+                                     (hash-ref inferred-umbrellas (package-name pkg) #f)))
+           (define next-names (map string->symbol
+                                   (append (if umbrella-name
+                                               (list umbrella-name)
+                                               null)
+                                           implied-names)))
+           (cond
+             [(null? next-names) (loop (cdr pkgs) docs seen)]
+             [else
+              (loop (append (package-batch-detail next-names)
+                            (cdr pkgs))
+                    docs
+                    seen)]))])))
+  docs)
+
+(define (infer-umbrellas)
+  (define names (for/hash ([name-sym (in-list (all-package-names))])
+                  (values (symbol->string name-sym) #t)))
+  (for/fold ([inferred-umbrellas #hash()])
+            ([name (in-hash-keys names)])
+    (define m (regexp-match #rx"^(.*)-(?:lib|exe|doc|test)$" name))
+    (define potential-umbrella-name (and m (cadr m)))
+    (if (and potential-umbrella-name
+             (hash-ref names potential-umbrella-name #f))
+        (hash-set inferred-umbrellas name potential-umbrella-name)
+        inferred-umbrellas)))
+
+;; determines umbrella relationshops, but only among `pkgs`,
+;; while `inferrd-umbrellas` may have information on additional packages
+(define (umbrellas-and-members pkgs inferred-umbrellas)
+  (define names (for/hash ([pkg (in-list pkgs)]) (values (package-name pkg) #t)))
+  (define umbrellas
+    (for/hash ([pkg (in-list pkgs)]
+               #:do [(define umbrella-name
+                        (or (package-umbrella pkg)
+                            (hash-ref inferred-umbrellas (package-name pkg) #f)))]
+               #:when (hash-ref names umbrella-name #f))
+      (values (package-name pkg) umbrella-name)))
+  (define umbrella-members
+    (for/fold ([umbrella-members #hash()]) ([(sub super) (in-hash umbrellas)])
+      (hash-set umbrella-members super (cons sub (hash-ref umbrella-members super null)))))
+  (values umbrellas
+          umbrella-members))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Package hashtable getters.
@@ -693,6 +746,9 @@
 (define (package-dependencies pkg)      (or (@ pkg dependencies) '()))
 (define (package-implies pkg)           (or (@ pkg implies) '()))
 (define (package-modules pkg)           (or (@ pkg modules) '()))
+(define (package-language-families pkg) (or (@ pkg language-families) '("Racket")))
+(define (package-build-platforms pkg)   (or (@ pkg build-platforms) #f))
+(define (package-umbrella pkg)          (or (@ pkg umbrella) #f))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -746,10 +802,26 @@
   ;; representing packages with outstanding build errors or
   ;; failing tests, or which are missing docs, license metadata, or tags.
   (define now (/ (current-inexact-milliseconds) 1000))
+  (define inferred-umbrellas (infer-umbrellas))
+  (define pkgs (package-batch-detail package-names))
+  (define-values (umbrellas umbrella-members) (umbrellas-and-members pkgs inferred-umbrellas))
   (define-values (pkg-rows num-todos)
     (for/fold ([pkg-rows null] [num-todos 0])
-              ([pkg (package-batch-detail package-names)])
-      (define pkg-docs (append (package-docs pkg) (get-implied-docs pkg)))
+              ([pkg (sort pkgs
+                          (lambda (a b)
+                            (define a-name (package-name a))
+                            (define b-name (package-name b))
+                            (define a-parent (or (hash-ref umbrellas a-name #f) a-name))
+                            (define b-parent (or (hash-ref umbrellas b-name #f) b-name))
+                            (cond
+                              [(equal? a-parent b-parent)
+                               (cond
+                                 [(equal? a-name a-parent) #true]
+                                 [(equal? b-name a-parent) #false]
+                                 [else (string-ci<? a-name b-name)])]
+                              [else
+                               (string-ci<? a-parent b-parent)])))])
+      (define pkg-docs (get-all-pkg-docs pkg inferred-umbrellas))
       (define has-docs? (pair? pkg-docs))
       (define has-readme? (pair? (package-readme-url pkg)))
       (define has-tags? (pair? (package-tags pkg)))
@@ -760,6 +832,8 @@
                                     #t]
                                    [_
                                     #f]))
+      (define umbrella-name (hash-ref umbrellas (package-name pkg) #f))
+      (define umbrella-member-names (hash-ref umbrella-members (package-name pkg) null))
       (define todokey
         (cond [(package-build-failure-log pkg) 6]
               [(package-build-test-failure-log pkg) 5]
@@ -770,8 +844,13 @@
               [else 0]))
       (define row-xexp
         `(tr
-          ((data-todokey ,(number->string todokey)))
-          (td (span ((class "last-updated-negated") (style "display: none"))
+          ((data-todokey ,(number->string todokey))
+           ,@(if umbrella-name
+                 `([class "umbrella-content in-closed-umbrella"]
+                   [data-umbrella ,umbrella-name])
+                 null))
+          (td ([class "package-left"])
+              (span ((class "last-updated-negated") (style "display: none"))
                     ,(~a (- (package-last-updated pkg))))
               ,@(maybe-splice
                  (and (not (package-checksum-error pkg))
@@ -784,13 +863,23 @@
                               "label-danger") "Todo")))
           ,@(maybe-splice
              bulk-operations-enabled?
-             `(td (p "Ring " ,(~a (package-ring pkg)))
+             `(td ([class "package-left"])
+                  (p "Ring " ,(~a (package-ring pkg)))
                   ,(checkbox-input "selected-packages"
                                    (package-name pkg)
                                    #:id #f
                                    #:extra-classes `("selected-packages"))))
-          (td (h2 ,(package-link (package-name pkg)))
-              ,(authors-list (package-authors pkg)))
+          (td ([class "package-left package-desc"])
+              (h2 ,(package-link (package-name pkg)))
+              ,(authors-list (package-authors pkg))
+              ,@(if (null? umbrella-member-names)
+                    null
+                    `((div
+                       (div ([class "umbrella-arrow umbrella-closed"]
+                             [data-umbrella ,(package-name pkg)])
+                            "")
+                       ,@(for/list ([sub (in-list umbrella-member-names)])
+                           `(span () ,(package-link sub) " "))))))
           (td (p ,(if (string=? "" (package-description pkg))
                       `(span ((class "label label-warning")) "This package needs a description")
                       (package-description pkg)))
@@ -1114,6 +1203,8 @@
                       (td ,(tag-links (package-tags pkg))))
                   (tr (th "License")
                       (td ,(license-links pkg-license)))
+                  (tr (th "Language families")
+                      (td ,(string-join (package-language-families pkg) ", ")))
                   (tr (th "Last updated")
                       (td ,(utc->string (package-last-updated pkg))))
                   (tr (th "Ring")
@@ -1129,6 +1220,11 @@
                       (td ,(package-links
                             (dependencies->package-names
                              (package-dependencies pkg)))))
+                  (tr (th "Build platforms")
+                      (td ,(let ([platforms (package-build-platforms pkg)])
+                             (if platforms
+                                 (string-join (map ~a platforms) ", ")
+                                 '(i "any platform")))))
                   (tr (th "Most recent build results")
                       (td (ul ((class "build-results"))
                               ,@(maybe-splice
