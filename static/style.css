@@ -35,7 +35,7 @@ body {
 .build_yellow { background-color: #ffffcc; }
 .build_red { background-color: #ffcccc; }
 
-.doctags-label { font-weight: bold; }
+.doctags-label, .license-label { font-weight: bold; }
 
 table.packages, table.package-details, table.package-versions {
     width: 100%;
@@ -73,7 +73,8 @@ ul.module-list {
 .search-results { margin-top: 3em; }
 
 .main-page .package-count,
-.search-results .package-count {
+.search-results .package-count,
+.language-families {
     font-size: 100%;
     padding: 0.5em;
     background: #eee;
@@ -114,6 +115,10 @@ input#new_version {
 }
 .confirm-bulk-operation ul {
     margin: 2em;
+}
+
+.language-families {
+    margin-bottom: 1em;
 }
 
 .package-count {
@@ -196,3 +201,6 @@ th.headerSortDown::after { content: " ▲"; }
 
 .in-open-umbrella {
 }
+
+thead th.tablesorter-headerAsc .tablesorter-header-inner::after      { content: " ▲"; }
+thead th.tablesorter-headerDesc .tablesorter-header-inner::after     { content: " ▼"; }

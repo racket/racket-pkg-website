@@ -761,7 +761,9 @@
           (action ,(named-url bulk-operation-page))
           (method "post"))
     (table
-     ((class "packages sortable") (data-todokey ,(number->string num-todos)))
+     ([class "packages sortable"]
+      [id "package-table"]
+      [data-todokey ,(number->string num-todos)])
      (thead
       ,@(maybe-splice
          bulk-operations-enabled?
@@ -787,6 +789,7 @@
        ,@(maybe-splice bulk-operations-enabled? `(th 'nbsp))
        (th "Package")
        (th "Description")
+       (th "Family")
        (th "Build")
        (th ((style "display: none")) 'nbsp))) ;; todokey
      (tbody
@@ -805,28 +808,34 @@
   (define inferred-umbrellas (infer-umbrellas))
   (define pkgs (package-batch-detail package-names))
   (define-values (umbrellas umbrella-members) (umbrellas-and-members pkgs inferred-umbrellas))
+  (define sorted-pkgs (sort pkgs
+                            (lambda (a b)
+                              (define a-name (package-name a))
+                              (define b-name (package-name b))
+                              (define a-parent (or (hash-ref umbrellas a-name #f) a-name))
+                              (define b-parent (or (hash-ref umbrellas b-name #f) b-name))
+                              (cond
+                                [(equal? a-parent b-parent)
+                                 (cond
+                                   [(equal? a-name a-parent) #true]
+                                   [(equal? b-name a-parent) #false]
+                                   [else (string-ci<? a-name b-name)])]
+                                [else
+                                 (string-ci<? a-parent b-parent)]))))
+  (define package-name-to-language-families
+    (for/hash ([pkg (in-list sorted-pkgs)])
+      (values (package-name pkg) (package-language-families pkg))))
   (define-values (pkg-rows num-todos)
     (for/fold ([pkg-rows null] [num-todos 0])
-              ([pkg (sort pkgs
-                          (lambda (a b)
-                            (define a-name (package-name a))
-                            (define b-name (package-name b))
-                            (define a-parent (or (hash-ref umbrellas a-name #f) a-name))
-                            (define b-parent (or (hash-ref umbrellas b-name #f) b-name))
-                            (cond
-                              [(equal? a-parent b-parent)
-                               (cond
-                                 [(equal? a-name a-parent) #true]
-                                 [(equal? b-name a-parent) #false]
-                                 [else (string-ci<? a-name b-name)])]
-                              [else
-                               (string-ci<? a-parent b-parent)])))])
+              ([pkg sorted-pkgs]
+               [pkg-pos (in-naturals)])
       (define pkg-docs (get-all-pkg-docs pkg inferred-umbrellas))
       (define has-docs? (pair? pkg-docs))
       (define has-readme? (pair? (package-readme-url pkg)))
       (define has-tags? (pair? (package-tags pkg)))
       (define has-desc? (not (string=? "" (package-description pkg))))
       (define pkg-license (parse-license-jsexpr (package-license-jsexpr pkg)))
+      (define pkg-families (package-language-families pkg))
       (define has-valid-license? (match pkg-license
                                    [(cons 'valid _)
                                     #t]
@@ -842,11 +851,17 @@
               [(not has-valid-license?) 2]
               [(not has-tags?) 1]
               [else 0]))
+      (define pkg-sort-families (if umbrella-name
+                                    ;; ensure that sorting by families doesn't break up the umbrella
+                                    (hash-ref package-name-to-language-families umbrella-name pkg-families)
+                                    pkg-families))
       (define row-xexp
         `(tr
-          ((data-todokey ,(number->string todokey))
+          ([data-todokey ,(number->string todokey)]
+           [data-families ,(string-join pkg-sort-families ",")]
+           [data-sortpos ,(number->string pkg-pos)]
            ,@(if umbrella-name
-                 `([class "umbrella-content in-closed-umbrella"]
+                 `([class "umbrella-content in-closed-umbrella tablesorter-childRow"]
                    [data-umbrella ,umbrella-name])
                  null))
           (td ([class "package-left"])
@@ -902,8 +917,14 @@
                             "This package needs license metadata"
                             #:extra-attributes missing-license-tooltip-attributes)
                    `(div
-                     (span ((class "doctags-label")) "License: ")
+                     (span ((class "license-label")) "License: ")
                      ,(license-links pkg-license))))
+          (td ,@(apply
+                 append
+                 (for/list ([family (in-list pkg-families)]
+                            [i (in-naturals)])
+                   (list (if (zero? i) "" ", ")
+                         (family-link family)))))
           ,(build-status-td pkg)
           (td ((style "display: none")) ,(number->string todokey))))
       (values (cons row-xexp pkg-rows)
@@ -945,6 +966,30 @@
            (match-define (list u p l) e)
            (if u `(span ,p ,(buildhost-link u l)) `(span)))))
 
+(define (build-package-language-family-list package-names)
+  (define pkgs (package-batch-detail package-names))
+  (define families
+    (sort (set->list
+           (for*/set ([pkg (in-list pkgs)]
+                      [family (in-list (package-language-families pkg))])
+             family))
+          (lambda (a b)
+            (if (equal? a "Racket")
+                #t
+                (string-ci<? a b)))))
+  `(div ([class "language-families"])
+        "Language families: "
+        (span ([id "language-family-list"])
+              ,(family-link (car families))
+              ,@(apply
+                 append
+                 (for/list ([family (in-list (cdr families))])
+                   (list ", " (family-link family)))))))
+
+(define (family-link family)
+  `(span ([class "family-select"]
+          [data-family ,family])
+         ,family))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -982,11 +1027,12 @@
                  (form ((role "form")
                         (action ,(named-url search-page)))
                        ,(text-input "q" #:placeholder "Search packages")))
+           (build-package-language-family-list package-name-list)
            `(div
              (p ((class "package-count"))
-                ,(format "~a packages" (length package-name-list))
+                ,(format "~a packages." (length package-name-list))
                 " "
-                (a ((href ,(format "~a?q=%20" (named-url search-page)))) "(see all, including packages tagged as \"deprecated\", \"main-distribution\", or \"main-tests\")"))
+                (a ((href ,(format "~a?q=%20" (named-url search-page)))) "See all, including packages tagged as \"deprecated\", \"main-distribution\", or \"main-tests\"."))
              (p ((class "package-count") (id "todo-msg")) "")
              ,(package-summary-table package-name-list))
            `(div ((class "jumbotron"))

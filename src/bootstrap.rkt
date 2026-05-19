@@ -119,7 +119,7 @@
 
       (script ,@(cond [(bootstrap-inline-js) => list] [else '()]))
       (script ((type "text/javascript") (src ,(static "/jquery.min.js"))))
-      (script ((type "text/javascript") (src ,(static "/jquery.tablesorter.min.js"))))
+      (script ((type "text/javascript") (src ,(static "/jquery.tablesorter.combined.min.js"))))
       (script ((type "text/javascript") (src ,(static "/jquery-ui.min.js"))))
       (script ((type "text/javascript") (src ,(static "/bootstrap/js/bootstrap.min.js"))))
       (script ((type "text/javascript") (src ,(static "/site.js"))))
