@@ -43,7 +43,12 @@ PkgSite = (function () {
 })();
 
 $(document).ready(function () {
-  $("table.sortable").tablesorter();
+  $("table.sortable").tablesorter({
+    widgets: ['children'],
+    widgetOptions: {
+      children_attach: true   // keeps child rows with their parent during sort
+    }
+  })
 
   if ($("#tags").length) {
     PkgSite.dynamicJSON((document.body.className === "package-form")
