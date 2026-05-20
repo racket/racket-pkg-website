@@ -97,7 +97,7 @@ function on_language_family() {
 $(function() {
   "use strict";
 
-  var query_family = (new URLSearchParams(window.location.search)).get("langfam");
+  var query_family = (new URLSearchParams(window.location.search)).get("fam");
   if (query_family) {
     language_family = query_family;
   }
