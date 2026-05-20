@@ -1,10 +1,10 @@
 # The Racket Package Catalog Server
 
-The Racket Package Catalog comprises three pieces of software that work
+The Racket Package Catalog comprises two pieces of software that work
 in tandem:
 
  - **pkg-index**, a.k.a. the **backend**: responsible for managing the
-   package database and user database, and periodically polls package
+   package database and user database. It periodically polls package
    sources to update checksums. Eventually, all Racket package clients
    can poll the package server, instead of checking each package
    individually, but package clients do not access the backend's
