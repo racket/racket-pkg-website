@@ -1,6 +1,7 @@
 #lang racket/base
 (require racket/list
          racket/function
+         racket/string
          racket/system
          racket/package
          racket/match
@@ -141,7 +142,11 @@
                       (hash-has-key? i 'implies)
                       (hash-has-key? i 'collection)
                       (hash-has-key? i 'rt-dependencies)
-                      (hash-has-key? i 'license)))
+                      (hash-has-key? i 'license)
+                      ;; a non-empty description is essential too; refresh
+                      ;; content so it can be filled in from package metadata
+                      (let ([d (hash-ref i 'description #f)])
+                        (and (string? d) (positive? (string-length d))))))
             i]
            [else
             (define next-i (update-from-content i))
@@ -160,7 +165,8 @@
   (log! "\tgetting package content for ~v" (hash-ref i 'name))
   (match-define-values
    (checksum module-paths (list deps rt-deps license implies collection
-                                umbrella language-families build-platforms))
+                                umbrella language-families build-platforms
+                                content-desc))
    (pkg:get-pkg-content
     (pkg:pkg-desc (hash-ref i 'source)
                   #f
@@ -177,8 +183,10 @@
               (get-info 'collection (λ () #f))
               (get-info 'umbrella (λ () #f))
               (get-info 'language-families (λ () #f))
-              (get-info 'build-platforms (λ () #f)))
-        (list empty empty missing empty #f)))))
+              (get-info 'build-platforms (λ () #f))
+              (content-description get-info))
+        ;; the fallback list must match the destructuring above
+        (list empty empty missing empty #f #f #f #f #f)))))
 
   (define (guard v pred alt-v) (if (pred v) v alt-v))
 
@@ -195,6 +203,15 @@
                                           empty)))
    ;; avoid conflation of symbols and strings in JSON
    (define* i (hash-set i 'collection (if (eq? collection 'multi) (list 'multi) collection)))
+   ;; fill in an empty registration description from the package's own
+   ;; metadata; never overwrite a description already set by the author
+   (define* i
+     (hash-set i 'description
+               (let ([cur (hash-ref i 'description #f)])
+                 (if (and (string? content-desc)
+                          (not (and (string? cur) (positive? (string-length cur)))))
+                     content-desc
+                     cur))))
    (define* i (hash-set i 'umbrella (guard umbrella
                                            string?
                                            #f)))
@@ -210,6 +227,16 @@
                                                                      l))))
                                                   #f)))
    i))
+
+;; Extracts a catalog description from package metadata. Only used to fill
+;; in an empty registration description. `blurb` may be a string or a list
+;; of strings; `pkg-desc` is a plain string.
+(define (content-description get-info)
+  (define v (get-info 'blurb (λ () (get-info 'pkg-desc (λ () #f)))))
+  (cond
+    [(string? v) v]
+    [(and (pair? v) (andmap string? v)) (string-join v " ")]
+    [else #f]))
 
 (define (do-update! pkgs)
   (notify! "package sources being checked for updates")
