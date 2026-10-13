@@ -752,11 +752,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (package-summary-table package-names)
+(define (package-summary-table package-names #:ranked? [ranked? #f])
   (define bulk-operations-enabled? (current-user-curator?))
   (define column-count (+ 4 (if bulk-operations-enabled? 1 0)))
   (define-values (pkg-rows num-todos)
-    (build-pkg-rows/num-todos bulk-operations-enabled? package-names))
+    (build-pkg-rows/num-todos bulk-operations-enabled? package-names #:ranked? ranked?))
   `(form ((role "form")
           (action ,(named-url bulk-operation-page))
           (method "post"))
@@ -799,22 +799,45 @@
                                     "No packages found."))))
       ,@pkg-rows))))
 
-(define (build-pkg-rows/num-todos bulk-operations-enabled? package-names)
+(define (build-pkg-rows/num-todos bulk-operations-enabled? package-names
+                                 #:ranked? [ranked? #f])
   ;; Builds the list of rows in the package table as an x-exp.
   ;; Also returns the total number of non-zero todo keys,
   ;; representing packages with outstanding build errors or
   ;; failing tests, or which are missing docs, license metadata, or tags.
+  ;; When `ranked?` is true, the caller's ordering (e.g. search relevance
+  ;; as computed by `sort-package-names/priority`) is preserved as the
+  ;; primary sort key, keeping umbrella members next to their parent;
+  ;; otherwise rows are ordered alphabetically as before.
   (define now (/ (current-inexact-milliseconds) 1000))
   (define inferred-umbrellas (infer-umbrellas))
   (define pkgs (package-batch-detail package-names))
   (define-values (umbrellas umbrella-members) (umbrellas-and-members pkgs inferred-umbrellas))
+  (define incoming-rank
+    (and ranked?
+         (for/hash ([name (in-list package-names)]
+                    [pos (in-naturals)])
+           ;; Names may be symbols here (e.g. from `all-package-names`
+           ;; or `package-search`), while `package-name` below yields
+           ;; the string field of the package record.
+           (values (format "~a" name) pos))))
+  (define (rank-pos name)
+    (define parent (or (hash-ref umbrellas name #f) name))
+    (or (and incoming-rank
+             (or (hash-ref incoming-rank parent #f)
+                 (hash-ref incoming-rank name #f)))
+        +inf.0))
   (define sorted-pkgs (sort pkgs
                             (lambda (a b)
                               (define a-name (package-name a))
                               (define b-name (package-name b))
                               (define a-parent (or (hash-ref umbrellas a-name #f) a-name))
                               (define b-parent (or (hash-ref umbrellas b-name #f) b-name))
+                              (define a-pos (rank-pos a-name))
+                              (define b-pos (rank-pos b-name))
                               (cond
+                                [(not (equal? a-pos b-pos))
+                                 (< a-pos b-pos)]
                                 [(equal? a-parent b-parent)
                                  (cond
                                    [(equal? a-name a-parent) #true]
@@ -1796,7 +1819,7 @@
                                       (p ((class "package-count"))
                                          ,(format "~a packages found" (length package-name-list)))
                                       (p ((class "package-count") (id "todo-msg")) "")
-                                      ,(package-summary-table package-name-list)))))))))
+                                      ,(package-summary-table package-name-list #:ranked? #t)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
