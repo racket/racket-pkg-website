@@ -312,10 +312,13 @@
 
 ;; sort-package-names/priority :: (listof string?) (listof (cons/c symbol? package?)) -> (listof symbol?)
 ;; Rank packages by favoring those whose name prefixes or contains search strings
-;; and whose description contains search strings
+;; and whose description contains search strings. Equal-relevance packages
+;; are ordered by build health (a passing build and tests first) and then
+;; by most recently updated.
 (define (sort-package-names/priority text-list packages)
-  ;; A key is a pair of a priority and a package name
-  ;; where higher priority means it's more relevant to the search text
+  ;; A key is a list of a relevance priority, a build health rank
+  ;; (lower is healthier), a last-updated timestamp (more recent
+  ;; first) and the package name (final tie-breaker).
   ;; Note that the tombstone packages are filtered already,
   ;; so it's safe to use (@ pkg ...)
   (define (package-pair->key package-pair)
@@ -332,12 +335,23 @@
           [(string-contains? pkg-name text) 10]
           [(and pkg-desc (string-contains? pkg-desc text)) 1]
           [else 0])))
-    (cons priority pkg-name))
+    (define build-health
+      (cond
+        [(@ pkg build failure-log) 2]
+        [(@ pkg build test-failure-log) 1]
+        [else 0]))
+    (define last-updated (@ pkg last-updated))
+    (list priority
+          build-health
+          (if (real? last-updated) last-updated 0)
+          pkg-name))
 
   (define (key< a b)
     (cond
-      [(= (car a) (car b)) (string-ci<? (cdr a) (cdr b))]
-      [else (> (car a) (car b))]))
+      [(not (= (car a) (car b))) (> (car a) (car b))]
+      [(not (= (cadr a) (cadr b))) (< (cadr a) (cadr b))]
+      [(not (= (caddr a) (caddr b))) (> (caddr a) (caddr b))]
+      [else (string-ci<? (cadddr a) (cadddr b))]))
 
   (define sorted (sort packages key< #:key package-pair->key #:cache-keys? #t))
   (map car sorted))
