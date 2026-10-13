@@ -1032,7 +1032,9 @@
              (p ((class "package-count"))
                 ,(format "~a packages." (length package-name-list))
                 " "
-                (a ((href ,(format "~a?q=%20" (named-url search-page)))) "See all, including packages tagged as \"deprecated\", \"main-distribution\", or \"main-tests\"."))
+                (a ((href ,(format "~a?q=%20" (named-url search-page)))) "See all, including packages tagged as \"deprecated\", \"main-distribution\", or \"main-tests\".")
+                " "
+                (a ((href "#") (id "sort-by-recently-updated")) "Show recently updated first."))
              (p ((class "package-count") (id "todo-msg")) "")
              ,(package-summary-table package-name-list))
            `(div ((class "jumbotron"))

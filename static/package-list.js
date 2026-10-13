@@ -182,3 +182,19 @@ $(function() {
   on_language_family();
   
 }); /* document.ready */
+
+// The main index can sort by the hidden "last updated" column (the
+// blank space left of the "Package" heading has always done this), but
+// that is nearly impossible to discover (issue #6). Expose it as an
+// explicit link.
+$(function() {
+  "use strict";
+  var sortLink = document.getElementById("sort-by-recently-updated");
+  if (sortLink) {
+    sortLink.addEventListener("click", function (e) {
+      e.preventDefault();
+      $("#package-table").trigger("sorton", [[[0, 0]]]);
+      sortLink.blur();
+    });
+  }
+});
