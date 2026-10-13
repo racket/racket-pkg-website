@@ -63,3 +63,19 @@ $(document).ready(function () {
   }
 
 });
+
+// The server renders timestamps in UTC. <time datetime="..."> elements
+// carry the exact ISO 8601 timestamp, so convert the displayed text to
+// the viewer's local time zone (issue #43).
+$(function () {
+  "use strict";
+  document.querySelectorAll("time[datetime]").forEach(function (el) {
+    var d = new Date(el.getAttribute("datetime"));
+    if (isNaN(d.getTime())) return;
+    try {
+      el.textContent = d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    } catch (e) {
+      // Very old browsers without option support: keep the UTC text.
+    }
+  });
+});

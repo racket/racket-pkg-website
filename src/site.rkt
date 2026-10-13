@@ -642,9 +642,22 @@
   `([title "To add it, define `license` in “info.rkt”."]
     [style "cursor: help;"]))
 
+;; Formats `utc` (seconds since the epoch) as an ISO 8601 UTC
+;; timestamp, for the datetime attribute of a <time> element.
+(define (utc->iso-8601 utc)
+  (define d (seconds->date utc #f))
+  (format "~a-~a-~aT~a:~a:~aZ"
+          (date-year d)
+          (~r (date-month d) #:min-width 2 #:pad-string "0")
+          (~r (date-day d) #:min-width 2 #:pad-string "0")
+          (~r (date-hour d) #:min-width 2 #:pad-string "0")
+          (~r (date-minute d) #:min-width 2 #:pad-string "0")
+          (~r (date-second d) #:min-width 2 #:pad-string "0")))
+
 (define (utc->string utc)
   (if (and utc (not (zero? utc)))
-      (string-append (date->string (seconds->date utc #f) #t) " (UTC)")
+      `(time ((datetime ,(utc->iso-8601 utc)))
+              ,(string-append (date->string (seconds->date utc #f) #t) " (UTC)"))
       "N/A"))
 
 (define (get-all-pkg-docs pkg inferred-umbrellas)
