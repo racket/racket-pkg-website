@@ -79,6 +79,10 @@
 
 (define COOKIE "pltsession")
 
+;; Keep the browser cookie alive as long as the server-side session
+;; (sessions.rkt), which every request both touches and re-sets.
+(define session-cookie-max-age (quotient session-lifetime 1000))
+
 (define recent-seconds
   (or (@ (config) recent-seconds)
       (* 2 24 60 60))) ;; two days
@@ -194,7 +198,8 @@
   (let ((v cookie-value))
     (parameterize ((bootstrap-cookies
                     (if v
-                        (list (make-cookie COOKIE v #:path "/" #:secure? #t))
+                        (list (make-cookie COOKIE v #:path "/" #:secure? #t
+                                           #:max-age session-cookie-max-age))
                         (list clear-session-cookie))))
       body ...)))
 
@@ -261,7 +266,8 @@
                           (list (make-cookie COOKIE
                                              (session-key session)
                                              #:path "/"
-                                             #:secure? #t))
+                                             #:secure? #t
+                                             #:max-age session-cookie-max-age))
                           (list))))
         (with-site-config (body)))))
 
