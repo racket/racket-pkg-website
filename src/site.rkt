@@ -1057,6 +1057,20 @@
                    #f]))
               deps))
 
+;; Returns the (string) names of packages that depend on or imply
+;; `package-name`, computed from the full package table `all-packages`
+;; (as returned by `packages-jsexpr`). Self-references are excluded.
+(define (package-dependents all-packages package-name)
+  (define name-str (~a package-name))
+  (for/list ([(dep-pkg-name pkg) (in-hash all-packages)]
+             #:unless (equal? dep-pkg-name package-name)
+             #:do [(define dep-names
+                     (dependencies->package-names
+                      (append (package-dependencies pkg)
+                              (package-implies pkg))))]
+             #:when (member name-str dep-names))
+    (~a dep-pkg-name)))
+
 (define (clamp-ring r)
   (max 0 (min 2 r)))
 
@@ -1266,6 +1280,13 @@
                       (td ,(package-links
                             (dependencies->package-names
                              (package-dependencies pkg)))))
+                  ,@(let ([dependents
+                           (sort (package-dependents (packages-jsexpr) package-name)
+                                 string-ci<?)])
+                      (if (null? dependents)
+                          '()
+                          (list `(tr (th "Used by")
+                                     (td ,(package-links dependents))))))
                   (tr (th "Build platforms")
                       (td ,(let ([platforms (package-build-platforms pkg)])
                              (if platforms
