@@ -1219,6 +1219,15 @@
                             ,(glyphicon 'edit) " Edit this package"))
                      ))
 
+          (if (member "deprecated" (package-tags pkg))
+              `(div ((class "alert alert-warning")
+                     (role "alert"))
+                    ,(glyphicon 'exclamation-sign)
+                    " This package is tagged "
+                    ,(tag-link "deprecated")
+                    " and is hidden from the main package listing.")
+              "")
+
           (if (package-locally-modified? pkg)
               `(div ((class "alert alert-warning")
                      (role "alert"))
