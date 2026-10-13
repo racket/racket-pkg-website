@@ -1057,6 +1057,21 @@
                    #f]))
               deps))
 
+;; Renders dependency names like `package-links`, except names that are
+;; not catalog packages — collection names such as "racket/base", or
+;; repository identifiers — are shown as plain text instead of linking
+;; to nonexistent package pages (issue #79). `catalog-names` is the
+;; result of `all-package-names`.
+(define (dependency-links package-names catalog-names)
+  (define name-set (list->set catalog-names))
+  (if (null? package-names)
+      (package-links package-names)
+      `(ul ((class "list-inline packages"))
+        ,@(for/list ([p package-names])
+            (if (set-member? name-set (string->symbol p))
+                `(li ,(package-link p))
+                `(li ,p))))))
+
 (define (clamp-ring r)
   (max 0 (min 2 r)))
 
@@ -1263,9 +1278,10 @@
                   (tr (th "Conflicts")
                       (td ,(package-links (package-conflicts pkg))))
                   (tr (th "Dependencies")
-                      (td ,(package-links
+                      (td ,(dependency-links
                             (dependencies->package-names
-                             (package-dependencies pkg)))))
+                             (package-dependencies pkg))
+                            (all-package-names))))
                   (tr (th "Build platforms")
                       (td ,(let ([platforms (package-build-platforms pkg)])
                              (if platforms
