@@ -2,6 +2,7 @@
 (require racket/list
          (prefix-in http: net/http-easy)
          net/url
+         pkg/lib
          (only-in racket/exn exn->string)
          "package-source.rkt")
 
@@ -26,7 +27,12 @@
                         s
                         (exn->string e))
                        #f)])
-      (let () body ...)))
+      (call-in-pkg-timeout-sandbox
+       #:make-exn exn:fail:network
+       (lambda ()
+         ;; The sandbox can kill a request, so give it its own session.
+         (parameterize ([http:current-session (http:make-session)])
+           body ...)))))
 
   ;; URL -> (Option String)
   ;; Helper: Check for a "README.md" resource as a subresource of the
