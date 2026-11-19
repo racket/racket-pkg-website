@@ -9,15 +9,20 @@
 (define SUMMARY-ETAG-PATH (build-path cache-path (format "~a.etag" SUMMARY-NAME)))
 
 (define (build-update!)
-  (define headers
-    (if (and (file-exists? SUMMARY-PATH) (file-exists? SUMMARY-ETAG-PATH))
-        (hasheq 'if-none-match (file->bytes SUMMARY-ETAG-PATH))
-        (hasheq)))
-  (define response (http:get SUMMARY-URL #:headers headers #:max-redirects 0))
-  (define status (http:response-status-code response))
-  (unless (= status 304)
-    (unless (<= 200 status 299)
-      (error 'build-update! "unexpected HTTP status ~a for ~a" status SUMMARY-URL))
+  (define cur-version
+    (if (file-exists? SUMMARY-ETAG-PATH)
+        (file->bytes SUMMARY-ETAG-PATH)
+        #""))
+  (log! "build-update: Current: ~v\n" cur-version)
+
+  (define head (http:head SUMMARY-URL #:max-redirects 0))
+  (define head-version (or (http:response-headers-ref head 'etag) #""))
+  (log! "build-update: Head: ~v\n" head-version)
+
+  (unless (bytes=? cur-version head-version)
+    (define response (http:get SUMMARY-URL #:max-redirects 0))
+    (define get-version (or (http:response-headers-ref response 'etag) #""))
+    (log! "build-update: Get: ~v\n" get-version)
     (call-with-atomic-output-file
      SUMMARY-PATH
      (lambda (out _)
@@ -25,7 +30,7 @@
     (call-with-atomic-output-file
      SUMMARY-ETAG-PATH
      (lambda (out _)
-       (write-bytes (or (http:response-headers-ref response 'etag) #"") out)))))
+       (write-bytes get-version out)))))
 
 (define (do-build-update! l)
   (notify! "package build status being checked for updates")

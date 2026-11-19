@@ -18,9 +18,6 @@
    (for ([pth (list licenses.json exceptions.json)])
      (define url (spdx-url (path-element->string (file-name-from-path pth))))
      (define response (http:get url #:max-redirects 0))
-     (unless (<= 200 (http:response-status-code response) 299)
-       (error 'spdx-update "unexpected HTTP status ~a for ~a"
-              (http:response-status-code response) (url->string url)))
      (call-with-atomic-output-file pth
        (λ (out _tmp)
          (write-bytes (http:response-body response) out))))))

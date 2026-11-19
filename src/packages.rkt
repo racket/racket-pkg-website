@@ -75,12 +75,7 @@
         (cond
           [(equal? (url-scheme url) "file")
            (file->bytes (url->path url))]
-          [else
-           (define response (http:get url #:max-redirects 10))
-           (unless (<= 200 (http:response-status-code response) 299)
-             (error 'fetch-remote-packages "unexpected HTTP status ~a"
-                    (http:response-status-code response)))
-           (http:response-body response)]))
+          [else (http:response-body (http:get url #:max-redirects 10))]))
       ;; A .gz file is compressed independently of HTTP Content-Encoding.
       (bytes->jsexpr
        (if (regexp-match? #rx#"^\37\213" response-bytes)
