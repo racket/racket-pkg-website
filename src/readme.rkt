@@ -1,11 +1,10 @@
 #lang racket/base
-(require racket/match
-         racket/list
+(require racket/list
+         (prefix-in http: net/http-easy)
          net/url
          pkg/lib
          (only-in racket/exn exn->string)
-         "package-source.rkt"
-         "http-utils.rkt")
+         "package-source.rkt")
 
 (provide source->readme-url)
 
@@ -19,9 +18,9 @@
 (define (source->readme-url s)
 
   ;; SYNTAX
-  ;; If exn:fail:network is raised, logs a warning and returns #f
+  ;; Log network and HTTP client failures and return #f.
   (define-syntax-rule (ignore-network-errors body ...)
-    (with-handlers ([exn:fail:network?
+    (with-handlers ([(lambda (e) (or (exn:fail:network? e) (http:exn:fail:http-easy? e)))
                      (lambda (e)
                        (log-warning
                         "Network error retrieving possible readme for source URL ~a:\n~a"
@@ -31,7 +30,9 @@
       (call-in-pkg-timeout-sandbox
        #:make-exn exn:fail:network
        (lambda ()
-         body ...))))
+         ;; The sandbox can kill a request, so give it its own session.
+         (parameterize ([http:current-session (http:make-session)])
+           body ...)))))
 
   ;; URL -> (Option String)
   ;; Helper: Check for a "README.md" resource as a subresource of the
@@ -41,12 +42,9 @@
      (define readme-u (struct-copy url u
                         [path (append (url-path u) (list (path/param "README.md" '())))]))
      (log-info "Checking for readme at ~a ..." (url->string readme-u))
-     (match/values (http/simple-interpret-response
-                    (http/follow-redirects
-                     #"HEAD"
-                     (custom-http-sendrecv/url readme-u #:method #"HEAD")))
-       [('success _headers _body) (url->string readme-u)]
-       [(_ _ _) #f])))
+     (define response (http:head readme-u #:max-redirects 20))
+     (and (<= 200 (http:response-status-code response) 299)
+          (url->string readme-u))))
 
   ;; URL -> (Option String)
   ;; Helper: Retrieves the given resource and greps it for
@@ -55,14 +53,10 @@
   (define (horrible-readme-scraping-hack u)
     (ignore-network-errors
      (log-info "Checking for readme fragment at ~a ..." (url->string u))
-     (match/values (http/simple-interpret-response
-                    (http/follow-redirects
-                     #"GET"
-                     (custom-http-sendrecv/url u #:method #"GET")))
-       [('success _headers body)
-        (and (regexp-match? #px"(?i:id=.readme.)" body)
-             (string-append (url->string u) "#readme"))]
-       [(_ _ _) #f])))
+     (define response (http:get u #:max-redirects 20))
+     (and (<= 200 (http:response-status-code response) 299)
+          (regexp-match? #px"(?i:id=.readme.)" (http:response-body response))
+          (string-append (url->string u) "#readme"))))
 
   (define-values (p _complaints) (parse-package-source s))
   (and (git-source? p)
@@ -84,3 +78,29 @@
                          (loop (struct-copy url here-u
                                  [path (drop-right (url-path here-u) 1)])))))))))
 
+(module+ test
+  (require racket/async-channel
+           racket/match
+           rackunit
+           web-server/http
+           web-server/servlet-dispatch
+           web-server/web-server)
+
+  (test-case "README discovery follows a root-relative redirect on the fallback GET"
+    (define (handler req)
+      (match (list (request-method req) (url->string (request-uri req)))
+        [(list #"HEAD" "/repo.git/README.md") (response/xexpr "missing" #:code 404)]
+        [(list #"GET" "/repo.git") (redirect-to "/canonical" temporarily)]
+        [(list #"GET" "/canonical") (response/xexpr '(div ([id "readme"]) "README"))]
+        [_ (response/xexpr "unexpected request" #:code 400)]))
+
+    (define ready (make-async-channel))
+    (define stop
+      (serve #:dispatch (dispatch/servlet handler)
+             #:listen-ip "127.0.0.1" #:port 0 #:confirmation-channel ready))
+    (after
+     (let ([port (sync ready)])
+       (when (exn? port) (raise port))
+       (define repo-url (format "http://127.0.0.1:~a/repo.git" port))
+       (check-equal? (source->readme-url repo-url) (string-append repo-url "#readme")))
+     (stop))))

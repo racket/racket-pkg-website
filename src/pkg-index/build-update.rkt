@@ -1,73 +1,36 @@
 #lang racket/base
 (require racket/list
-         racket/match
          racket/file
-         racket/port
-         net/http-client
-         (prefix-in pkg: pkg/lib)
+         (prefix-in http: net/http-easy)
          "common.rkt"
          "notify.rkt")
 
-(define SUMMARY-HOST "pkg-build.racket-lang.org")
-(define SUMMARY-URL (string-append "/" SUMMARY-NAME))
+(define SUMMARY-URL (string-append "https://pkg-build.racket-lang.org/" SUMMARY-NAME))
 (define SUMMARY-ETAG-PATH (build-path cache-path (format "~a.etag" SUMMARY-NAME)))
-
-(define (extract-tag hs)
-  (or
-   (for/or ([h (in-list hs)])
-     (match h
-       [(regexp
-         #rx#"^(?i:ETag): (.*?)$"
-         (list _ tag-bys))
-        tag-bys]
-       [_
-        #f]))
-   #""))
-
-(define (file->bytes* p d)
-  (if (file-exists? p)
-    (file->bytes p)
-    d))
 
 (define (build-update!)
   (define cur-version
-    (file->bytes* SUMMARY-ETAG-PATH #""))
+    (if (file-exists? SUMMARY-ETAG-PATH)
+        (file->bytes SUMMARY-ETAG-PATH)
+        #""))
   (log! "build-update: Current: ~v\n" cur-version)
 
-  (define-values
-    (_0 head-headers _1)
-    (http-sendrecv
-     SUMMARY-HOST SUMMARY-URL
-     #:ssl? #t
-     #:method #"HEAD"))
-  (define head-version
-    (extract-tag head-headers))
+  (define head (http:head SUMMARY-URL #:max-redirects 0))
+  (define head-version (or (http:response-headers-ref head 'etag) #""))
   (log! "build-update: Head: ~v\n" head-version)
 
   (unless (bytes=? cur-version head-version)
-    (define-values
-      (_2 get-headers get-ip)
-      (http-sendrecv
-       SUMMARY-HOST SUMMARY-URL
-       #:ssl? #t
-       #:method #"GET"))
-    (define get-version
-      (extract-tag get-headers))
+    (define response (http:get SUMMARY-URL #:max-redirects 0))
+    (define get-version (or (http:response-headers-ref response 'etag) #""))
     (log! "build-update: Get: ~v\n" get-version)
-
-    (define new-file
-      (make-temporary-file "summary-~a.rktd" #f cache-path))
-    (call-with-output-file new-file
-      #:exists 'truncate/replace
-      (λ (new-op)
-        (copy-port get-ip new-op)))
-
-    (with-output-to-file SUMMARY-ETAG-PATH
-      #:exists 'truncate/replace
-      (λ ()
-        (write-bytes get-version)))
-
-    (rename-file-or-directory new-file SUMMARY-PATH #t)))
+    (call-with-atomic-output-file
+     SUMMARY-PATH
+     (lambda (out _)
+       (write-bytes (http:response-body response) out)))
+    (call-with-atomic-output-file
+     SUMMARY-ETAG-PATH
+     (lambda (out _)
+       (write-bytes get-version out)))))
 
 (define (do-build-update! l)
   (notify! "package build status being checked for updates")

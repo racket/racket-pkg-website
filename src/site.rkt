@@ -36,7 +36,6 @@
 (require "static.rkt")
 (require "spdx.rkt")
 (require "package-source.rkt")
-(require "http-utils.rkt")
 (require "challenge.rkt")
 (require "users.rkt")
 (require "display-name.rkt")
