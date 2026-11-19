@@ -110,7 +110,11 @@
          (if (and (equal? new-checksum old-checksum)
                   (hash-has-key? i 'readme-url))
              i
-             (hash-set i 'readme-url (source->readme-url (package-ref i 'source)))))
+             (with-handlers ([exn:fail?
+                              (lambda (_)
+                                (log-warning "README lookup failed for package ~a" pkg-name)
+                                i)])
+               (hash-set i 'readme-url (source->readme-url (package-ref i 'source))))))
        (define* i
          (hash-update i 'versions
                       (λ (v-ht)
