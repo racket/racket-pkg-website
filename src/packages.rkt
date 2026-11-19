@@ -19,7 +19,7 @@
 (require json)
 (require racket/set)
 (require racket/match)
-(require racket/port)
+(require (only-in racket/file file->bytes))
 (require racket/string)
 (require racket/list)
 (require racket/path)
@@ -74,7 +74,7 @@
       (define response-bytes
         (cond
           [(equal? (url-scheme url) "file")
-           (call/input-url url get-pure-port port->bytes)]
+           (file->bytes (url->path url))]
           [else
            (define response (http:get url #:max-redirects 10))
            (unless (<= 200 (http:response-status-code response) 299)
