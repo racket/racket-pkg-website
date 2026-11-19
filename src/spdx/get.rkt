@@ -8,24 +8,22 @@
          spdx-url)
 
 (module+ main
-  (require net/url
-           net/url-connect
-           openssl
+  (require (prefix-in http: net/http-easy)
            racket/path
            racket/file
-           racket/port
            racket/cmdline)
   (command-line
    #:usage-help "update “licenses.json” and “exceptions.json” from spdx.org"
    #:args ()
-   (parameterize ([current-https-protocol 'secure])
-     (for ([pth (list licenses.json exceptions.json)])
-       (define in
-         (get-pure-port
-          (spdx-url (path-element->string (file-name-from-path pth)))))
-       (call-with-atomic-output-file pth
-         (λ (out _tmp)
-           (copy-port in out)))))))
+   (for ([pth (list licenses.json exceptions.json)])
+     (define url (spdx-url (path-element->string (file-name-from-path pth))))
+     (define response (http:get url #:max-redirects 0))
+     (unless (<= 200 (http:response-status-code response) 299)
+       (error 'spdx-update "unexpected HTTP status ~a for ~a"
+              (http:response-status-code response) (url->string url)))
+     (call-with-atomic-output-file pth
+       (λ (out _tmp)
+         (write-bytes (http:response-body response) out))))))
 
 (define-runtime-path licenses.json
   "licenses.json")

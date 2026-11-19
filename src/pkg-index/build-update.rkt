@@ -1,73 +1,53 @@
 #lang racket/base
 (require racket/list
-         racket/match
          racket/file
          racket/port
-         net/http-client
+         (prefix-in http: net/http-easy)
          (prefix-in pkg: pkg/lib)
          "common.rkt"
          "notify.rkt")
 
-(define SUMMARY-HOST "pkg-build.racket-lang.org")
-(define SUMMARY-URL (string-append "/" SUMMARY-NAME))
+(define SUMMARY-URL (string-append "https://pkg-build.racket-lang.org/" SUMMARY-NAME))
 (define SUMMARY-ETAG-PATH (build-path cache-path (format "~a.etag" SUMMARY-NAME)))
-
-(define (extract-tag hs)
-  (or
-   (for/or ([h (in-list hs)])
-     (match h
-       [(regexp
-         #rx#"^(?i:ETag): (.*?)$"
-         (list _ tag-bys))
-        tag-bys]
-       [_
-        #f]))
-   #""))
 
 (define (file->bytes* p d)
   (if (file-exists? p)
     (file->bytes p)
     d))
 
+(define (check-summary-response response)
+  (define status (http:response-status-code response))
+  (unless (<= 200 status 299)
+    (error 'build-update! "unexpected HTTP status ~a for ~a" status SUMMARY-URL)))
+
 (define (build-update!)
   (define cur-version
     (file->bytes* SUMMARY-ETAG-PATH #""))
   (log! "build-update: Current: ~v\n" cur-version)
 
-  (define-values
-    (_0 head-headers _1)
-    (http-sendrecv
-     SUMMARY-HOST SUMMARY-URL
-     #:ssl? #t
-     #:method #"HEAD"))
-  (define head-version
-    (extract-tag head-headers))
+  (define head (http:head SUMMARY-URL #:max-redirects 0))
+  (check-summary-response head)
+  (define head-version (or (http:response-headers-ref head 'etag) #""))
   (log! "build-update: Head: ~v\n" head-version)
 
   (unless (bytes=? cur-version head-version)
-    (define-values
-      (_2 get-headers get-ip)
-      (http-sendrecv
-       SUMMARY-HOST SUMMARY-URL
-       #:ssl? #t
-       #:method #"GET"))
+    (define response (http:get SUMMARY-URL #:max-redirects 0 #:stream? #t))
     (define get-version
-      (extract-tag get-headers))
-    (log! "build-update: Get: ~v\n" get-version)
-
-    (define new-file
-      (make-temporary-file "summary-~a.rktd" #f cache-path))
-    (call-with-output-file new-file
-      #:exists 'truncate/replace
-      (λ (new-op)
-        (copy-port get-ip new-op)))
+      (dynamic-wind
+        void
+        (lambda ()
+          (check-summary-response response)
+          (call-with-atomic-output-file
+           SUMMARY-PATH
+           (lambda (out _)
+             (copy-port (http:response-output response) out)))
+          (or (http:response-headers-ref response 'etag) #""))
+        (lambda () (http:response-close! response))))
 
     (with-output-to-file SUMMARY-ETAG-PATH
       #:exists 'truncate/replace
       (λ ()
-        (write-bytes get-version)))
-
-    (rename-file-or-directory new-file SUMMARY-PATH #t)))
+        (write-bytes get-version)))))
 
 (define (do-build-update! l)
   (notify! "package build status being checked for updates")

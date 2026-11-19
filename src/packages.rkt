@@ -25,6 +25,7 @@
 (require racket/path)
 (require web-server/private/gzip)
 (require net/url)
+(require (prefix-in http: net/http-easy))
 (require reloadable)
 (require infrastructure-userdb/display-name)
 (require "config.rkt")
@@ -69,15 +70,22 @@
                      (lambda (e)
                        ((error-display-handler) (exn-message e) e)
                        #f)])
-      (define response-port
-        (get-pure-port (string->url package-index-url)
-                       (list "Accept-Encoding: gzip")
-                       	#:redirections 10))
-      (define response-bytes (port->bytes response-port))
-      (close-input-port response-port)
-      (define decompressed (gunzip/bytes response-bytes))
-      (define decoded (bytes->jsexpr decompressed))
-      decoded))
+      (define url (string->url package-index-url))
+      (define response-bytes
+        (cond
+          [(equal? (url-scheme url) "file")
+           (call/input-url url get-pure-port port->bytes)]
+          [else
+           (define response (http:get url #:max-redirects 10))
+           (unless (<= 200 (http:response-status-code response) 299)
+             (error 'fetch-remote-packages "unexpected HTTP status ~a"
+                    (http:response-status-code response)))
+           (http:response-body response)]))
+      ;; A .gz file is compressed independently of HTTP Content-Encoding.
+      (bytes->jsexpr
+       (if (regexp-match? #rx#"^\37\213" response-bytes)
+           (gunzip/bytes response-bytes)
+           response-bytes))))
   (if (hash? result)
       (log-info "Fetched package list containing ~a packages." (hash-count result))
       (log-info "Fetched bogus package list: ~e" result))

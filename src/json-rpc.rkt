@@ -3,16 +3,10 @@
 
 (provide simple-json-rpc!)
 
-(require racket/port)
-(require net/url)
-(require net/base64)
-(require json)
-(require "sessions.rkt")
-
-(define (make-basic-auth-credentials-header username password)
-  (define token
-    (base64-encode (string->bytes/utf-8 (string-append username ":" password)) #""))
-  (string-append "Authorization: Basic " (bytes->string/utf-8 token)))
+(require (prefix-in http: net/http-easy)
+         json
+         "http-post.rkt"
+         "sessions.rkt")
 
 (define (simple-json-rpc! #:sensitive? [sensitive? #f]
                           #:include-credentials? [include-credentials? #t]
@@ -30,17 +24,11 @@
                         " +creds"
                         " +creds(missing)")
                     "")))
-  (define request-urls (format "~a~a" baseurl site-relative-url))
-  (define request-url (string->url request-urls))
-  (define post-data (string->bytes/utf-8 (jsexpr->string jsexpr-to-send)))
-  (define req-headers
-    (if include-credentials?
-        (list (make-basic-auth-credentials-header (session-email s)
-                                                  (session-password s)))
-        '()))
-  (define response-port (post-pure-port request-url post-data req-headers))
-  (define raw-response (port->string response-port))
-  (close-input-port response-port)
-  (define reply (string->jsexpr raw-response))
+  (define request-url (format "~a~a" baseurl site-relative-url))
+  (define response
+    (post-once request-url (jsexpr->bytes jsexpr-to-send)
+               #:auth (and include-credentials?
+                           (http:basic-auth (session-email s) (session-password s)))))
+  (define reply (http:response-json response))
   (unless sensitive? (log-info "simple-json-rpc: reply ~v" reply))
   reply)

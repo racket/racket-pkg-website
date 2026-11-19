@@ -58,9 +58,12 @@ following Racket packages:
     raco pkg install --skip-installed \
          'https://github.com/racket/infrastructure-userdb.git#main' \
          reloadable \
+         http-easy-lib \
          aws \
          s3-sync \
          plt-service-monitor
+
+The HTTP client requires `http-easy-lib` version 0.11 or later.
 
 ## Configuration
 
