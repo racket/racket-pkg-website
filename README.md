@@ -63,8 +63,6 @@ following Racket packages:
          s3-sync \
          plt-service-monitor
 
-The HTTP client requires `http-easy-lib` version 0.11 or later.
-
 ## Configuration
 
 You can run the server in test mode with `make run` or `./run` or

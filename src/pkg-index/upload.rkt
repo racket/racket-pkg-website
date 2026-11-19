@@ -1,18 +1,22 @@
 #lang racket/base
-(require net/url
-         (prefix-in http: net/http-easy)
-         racket/port
-         "../http-post.rkt")
+(require racket/list
+         net/url
+         racket/port)
 
 (define (upload! the-email the-password the-url the-post)
   (displayln the-email)
   (displayln the-post)
-  (define data
-    (with-output-to-bytes
-      (lambda ()
-        (write (list the-email (string->bytes/utf-8 the-password) the-post)))))
-  (define response (post-once the-url data))
-  (define v (bytes->string/utf-8 (http:response-body response) #\uFFFD))
+  (define bs
+    (call/input-url the-url
+                    (λ (url)
+                      (post-pure-port the-url
+                                      (with-output-to-bytes
+                                       (λ ()
+                                         (write (list the-email
+                                                      (string->bytes/utf-8 the-password)
+                                                      the-post))))))
+                    (lambda (p) (begin0 (port->bytes p) (close-input-port p)))))
+  (define v (port->string (open-input-bytes bs)))
   (displayln v)
   v)
 

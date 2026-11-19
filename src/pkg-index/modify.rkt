@@ -1,16 +1,31 @@
 #lang racket/base
-(require net/url
-         (prefix-in http: net/http-easy)
-         json
-         "../http-post.rkt")
+(require racket/list
+         net/url
+         racket/port
+         net/base64
+         json)
 
 (define (upload! the-email the-password the-url the-post)
   (displayln the-email)
   (println the-post)
-  (define response
-    (post-once the-url (jsexpr->bytes the-post)
-               #:auth (http:basic-auth the-email the-password)))
-  (define v (bytes->string/utf-8 (http:response-body response) #\uFFFD))
+  (define bs
+    (call/input-url the-url
+                    (λ (url)
+                      (post-pure-port the-url
+                                      (jsexpr->bytes the-post)
+                                      ;; Adding an `Authorization` header lets this
+                                      ;; tool be used for "/api/package/modify-all", too
+                                      (list (string-append
+                                             "Authorization: Basic "
+                                             (bytes->string/utf-8
+                                              (base64-encode (string->bytes/utf-8
+                                                              (string-append
+                                                               the-email
+                                                               ":"
+                                                               the-password))
+                                                             #""))))))
+                    (lambda (p) (begin0 (port->bytes p) (close-input-port p)))))
+  (define v (port->string (open-input-bytes bs)))
   (displayln v)
   v)
 
